@@ -4,28 +4,20 @@
 services:
   # 您的 FastAPI Web 服務
   - type: web
-    name: equipment-repair-system # 您可以在此自訂服務名稱
+    name: equipment-repair-system # <-- (名稱 A)
     env: python
-    # 使用免費方案 (注意：免費方案的服務在閒置一段時間後會休眠)
     plan: free
-    # 從 Git 主分支自動部署
     autoDeploy: true
-    # Build 指令：安裝 requirements.txt 中定義的所有 Python 套件
     buildCommand: "pip install -r requirements.txt"
-    # Start 指令：使用 Gunicorn 伺服器來啟動您的 FastAPI 應用
-    # 這行指令會去執行 main.py 檔案裡的 app 變數
     startCommand: "gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app"
     envVars:
-      # 設定一個名為 DATABASE_URL 的環境變數
-      # 它的值會自動從下面定義的資料庫服務中取得
       - key: DATABASE_URL
         fromDatabase:
-          name: equipment-db # 這個名稱必須和下面 databases 區塊的 name 完全一致
+          # 🔴 關鍵檢查點：這裡的 name 必須和下面 databases 區塊的 name 完全一致！
+          name: equipment-db # <-- (名稱 B)
           property: connectionString
 
 databases:
   # 您的 PostgreSQL 資料庫服務
-  - name: equipment-db # 您可以在此自訂資料庫名稱
-    # 使用免費方案 (注意：免費方案的資料庫在 90 天後會過期，需要手動更新)
+  - name: equipment-db # <-- (名稱 C)
     plan: free
-
