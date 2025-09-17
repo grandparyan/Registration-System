@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>設備報修進度查詢</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div class="container mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl font-bold text-gray-900">設備報修進度</h1>
+            <p class="text-md text-gray-600 mt-2">查看目前所有設備問題的處理狀態</p>
+        </header>
+
+        <!-- Container for report cards -->
+        <div id="report-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Report cards will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <script>
+        const reportGrid = document.getElementById('report-grid');
+
+        /**
+         * Fetches reports and displays them as cards.
+         */
+        async function fetchStudentReports() {
+            try {
+                const response = await fetch('/reports/');
+                if (!response.ok) throw new Error('無法獲取報修列表');
+                const reports = await response.json();
+
+                reportGrid.innerHTML = ''; // Clear current content
+                if (reports.length === 0) {
+                    reportGrid.className = 'text-center text-gray-500 py-8 col-span-full';
+                    reportGrid.innerHTML = `<li>目前沒有任何報修紀錄。</li>`;
+                } else {
+                    reports.forEach(report => {
+                        const card = document.createElement('div');
+                        card.className = 'bg-white p-6 rounded-xl shadow-md flex flex-col justify-between transition hover:shadow-lg hover:-translate-y-1';
+                        card.innerHTML = `
+                            <div>
+                                <div class="flex justify-between items-start mb-3">
+                                    <h3 class="font-bold text-xl text-gray-800">${report.location}</h3>
+                                    <span class="px-3 py-1 text-xs leading-5 font-semibold rounded-full ${getStatusColor(report.status)}">
+                                        ${report.status}
+                                    </span>
+                                </div>
+                                <p class="text-gray-600 text-sm mb-4">
+                                    <span class="font-semibold">問題描述：</span>${report.problem_description}
+                                </p>
+                            </div>
+                            <div class="text-right text-xs text-gray-400 mt-4">
+                                <span>由 ${report.reporter_name} 回報</span>
+                                <span class="mx-1">|</span>
+                                <span>ID: #${report.id}</span>
+                            </div>
+                        `;
+                        reportGrid.appendChild(card);
+                    });
+                }
+            } catch (error) {
+                console.error('獲取報修資料時發生錯誤:', error);
+                reportGrid.className = 'text-center text-red-500 py-8 col-span-full';
+                reportGrid.innerHTML = `<li>無法載入報修列表，請稍後再試。</li>`;
+            }
+        }
+        
+        /**
+         * Returns a Tailwind CSS color class based on the report status.
+         * @param {string} status - The status of the report.
+         * @returns {string} The corresponding color class.
+         */
+        function getStatusColor(status) {
+            switch(status) {
+                case '已完成':
+                    return 'bg-green-100 text-green-800';
+                case '處理中':
+                    return 'bg-yellow-100 text-yellow-800';
+                case '無法修復':
+                    return 'bg-red-100 text-red-800';
+                case '待處理':
+                default:
+                    return 'bg-gray-200 text-gray-800';
+            }
+        }
+
+        // Fetch reports when the page loads.
+        fetchStudentReports();
+    </script>
+</body>
+</html>
+

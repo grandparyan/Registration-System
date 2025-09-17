@@ -1,0 +1,32 @@
+# Render.com Blueprint (render.yaml)
+# 說明：這個檔案定義了部署在 Render 上的服務。
+# 包含一個 Python FastAPI Web 服務和一個 PostgreSQL 資料庫。
+
+services:
+  # FastAPI 應用程式服務
+  - type: web
+    # 建議將名稱修改為與新專案相關，例如 "equipment-repair-app"
+    name: equipment-repair-app
+    env: python
+    # 免費方案適合開發和測試
+    plan: free
+    # 設定自動部署，當 Git 主分支有更新時會自動部署
+    autoDeploy: true
+    # Build 指令：安裝 requirements.txt 中定義的所有 Python 套件
+    buildCommand: "pip install -r requirements.txt"
+    # Start 指令：使用 Gunicorn 作為正式環境的 WSGI 伺服器來啟動 FastAPI
+    startCommand: "gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app"
+    envVars:
+      # 環境變數：DATABASE_URL
+      # 它的值會自動從下面定義的資料庫服務中取得
+      - key: DATABASE_URL
+        fromDatabase:
+          # 這裡的 name 必須與下面 databases 區塊中定義的 name 完全一致
+          name: equipment-db
+          property: connectionString
+
+databases:
+  # PostgreSQL 資料庫服務
+  - name: equipment-db # 同樣建議修改名稱以符合專案用途
+    # 免費方案的資料庫會在 90 天後過期，請注意
+    plan: free
