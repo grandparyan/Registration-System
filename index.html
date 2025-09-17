@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教師設備報修系統</title>
+    <!-- 引入 Tailwind CSS 以進行現代化樣式設計 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 您可以在此處添加自訂樣式 */
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen">
+
+    <div class="container mx-auto max-w-2xl p-4 sm:p-6 lg:p-8">
+        <div class="bg-white p-8 rounded-2xl shadow-xl">
+            <header class="mb-8 text-center">
+                <h1 class="text-4xl font-bold text-gray-900">設備報修系統</h1>
+                <p class="text-md text-gray-600 mt-2">請填寫下列表單以提交您的報修請求</p>
+            </header>
+
+            <!-- 用於提交報修的表單 -->
+            <form id="report-form" class="space-y-6">
+                <div>
+                    <label for="reporter_name" class="block text-sm font-medium text-gray-700 mb-1">您的姓名</label>
+                    <input type="text" id="reporter_name" name="reporter_name" placeholder="請輸入您的姓名" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out">
+                </div>
+                
+                <div>
+                    <label for="location" class="block text-sm font-medium text-gray-700 mb-1">問題設備地點</label>
+                    <input type="text" id="location" name="location" placeholder="例如：電腦教室 A、三樓辦公室" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out">
+                </div>
+
+                <div>
+                    <label for="problem_description" class="block text-sm font-medium text-gray-700 mb-1">設備問題描述</label>
+                    <textarea id="problem_description" name="problem_description" rows="5" placeholder="請詳細描述問題情況，例如：電腦無法開機、投影機畫面模糊" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"></textarea>
+                </div>
+                
+                <div>
+                     <button type="submit" id="submit-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-5 rounded-lg transition duration-300 ease-in-out transform hover:scale-105">
+                        <span id="button-text">提交報修</span>
+                        <span id="button-spinner" class="hidden">處理中...</span>
+                    </button>
+                </div>
+            </form>
+            <!-- 用於顯示成功或失敗訊息的區塊 -->
+            <div id="message-display" class="mt-6 text-center text-sm"></div>
+        </div>
+    </div>
+
+    <script>
+        const reportForm = document.getElementById('report-form');
+        const submitButton = document.getElementById('submit-button');
+        const buttonText = document.getElementById('button-text');
+        const buttonSpinner = document.getElementById('button-spinner');
+        const messageDisplay = document.getElementById('message-display');
+
+        /**
+         * 處理表單提交事件
+         */
+        reportForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); // 防止頁面重新載入
+
+            // 禁用按鈕並顯示處理中狀態
+            submitButton.disabled = true;
+            buttonText.classList.add('hidden');
+            buttonSpinner.classList.remove('hidden');
+            messageDisplay.textContent = '';
+            messageDisplay.className = 'mt-6 text-center text-sm';
+
+
+            // 從表單中獲取資料
+            const formData = new FormData(reportForm);
+            const reportData = {
+                reporter_name: formData.get('reporter_name'),
+                location: formData.get('location'),
+                problem_description: formData.get('problem_description'),
+            };
+
+            try {
+                // 使用 fetch API 將資料發送到後端
+                const response = await fetch('/reports', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(reportData),
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    // 如果後端返回錯誤，則拋出錯誤
+                    throw new Error(result.detail || '提交失敗，請稍後再試。');
+                }
+                
+                // 顯示成功訊息
+                messageDisplay.textContent = '報修單已成功提交！感謝您的回報。';
+                messageDisplay.classList.add('text-green-600');
+                reportForm.reset(); // 清空表單
+
+            } catch (error) {
+                // 捕獲並顯示錯誤訊息
+                console.error('提交錯誤:', error);
+                messageDisplay.textContent = `提交失敗：${error.message}`;
+                messageDisplay.classList.add('text-red-600');
+            } finally {
+                // 無論成功或失敗，最後都恢復按鈕狀態
+                setTimeout(() => {
+                    submitButton.disabled = false;
+                    buttonText.classList.remove('hidden');
+                    buttonSpinner.classList.add('hidden');
+                }, 1500); // 延遲一下，讓使用者能看到訊息
+            }
+        });
+    </script>
+
+</body>
+</html>
+
