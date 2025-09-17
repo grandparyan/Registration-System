@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學生任務看板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div class="container mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl font-bold text-gray-900">學生任務看板</h1>
+            <p class="text-md text-gray-600 mt-2">查看並報名參加資訊組發布的支援任務</p>
+        </header>
+
+        <!-- 訊息提示區 -->
+        <div id="toast-message" class="fixed top-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg hidden transition-opacity duration-300"></div>
+
+        <!-- 任務卡片網格 -->
+        <div id="task-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- 任務卡片將由 JavaScript 動態插入此處 -->
+        </div>
+    </div>
+
+    <script>
+        const taskGrid = document.getElementById('task-grid');
+        const toastMessage = document.getElementById('toast-message');
+
+        /**
+         * 顯示短暫的提示訊息 (Toast)
+         * @param {string} message - 要顯示的訊息
+         * @param {boolean} isError - 是否為錯誤訊息
+         */
+        function showToast(message, isError = false) {
+            toastMessage.textContent = message;
+            toastMessage.className = `fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+            toastMessage.classList.remove('hidden');
+            setTimeout(() => {
+                toastMessage.classList.add('hidden');
+            }, 3000);
+        }
+
+        /**
+         * 獲取所有已發布的任務並以卡片形式呈現
+         */
+        async function fetchTasks() {
+            try {
+                const response = await fetch('/tasks');
+                if (!response.ok) throw new Error('無法獲取任務列表');
+                const tasks = await response.json();
+
+                taskGrid.innerHTML = ''; // 清空現有內容
+                if (tasks.length === 0) {
+                    taskGrid.className = 'text-center text-gray-500 py-12 col-span-full';
+                    taskGrid.innerHTML = `<p>太棒了！目前沒有需要支援的任務。</p>`;
+                    return;
+                }
+                
+                // 確保恢復網格佈局
+                taskGrid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8';
+
+                tasks.forEach(task => {
+                    const isFull = task.current_students >= task.required_students;
+                    const card = document.createElement('div');
+                    card.className = `bg-white p-6 rounded-xl shadow-lg flex flex-col justify-between transition hover:shadow-2xl hover:-translate-y-1 ${isFull ? 'bg-gray-50' : ''}`;
+                    
+                    // 根據是否額滿決定顯示內容
+                    const signupSectionHTML = isFull 
+                        ? `<div class="text-center mt-4 py-3 px-4 bg-gray-200 text-gray-600 rounded-lg font-semibold">名額已滿</div>`
+                        : `<form onsubmit="handleSignup(event, ${task.id})" class="mt-4">
+                                <div class="flex space-x-2">
+                                    <input type="text" name="student_name" placeholder="請輸入您的姓名" required class="flex-grow w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition">報名</button>
+                                </div>
+                           </form>`;
+                    
+                    // 學生名單顯示
+                    const studentListHTML = task.signed_up_students.length > 0 
+                        ? task.signed_up_students.map(name => `<span class="bg-gray-200 text-gray-700 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full">${name}</span>`).join('')
+                        : '<p class="text-xs text-gray-400">目前尚無人報名</p>';
+
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex justify-between items-start mb-3">
+                                <h3 class="font-bold text-xl text-gray-800">${task.location}</h3>
+                                <div class="text-right">
+                                    <div class="font-bold text-lg ${isFull ? 'text-gray-500' : 'text-blue-600'}">${task.current_students} / ${task.required_students}</div>
+                                    <div class="text-xs text-gray-500">人</div>
+                                </div>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-4 min-h-[60px]">
+                                <span class="font-semibold">任務描述：</span>${task.problem_description}
+                            </p>
+                            <div class="mt-4">
+                                <h4 class="font-semibold text-sm mb-2">已報名學生：</h4>
+                                <div class="flex flex-wrap gap-2">
+                                    ${studentListHTML}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-auto pt-4">
+                           ${signupSectionHTML}
+                        </div>
+                    `;
+                    taskGrid.appendChild(card);
+                });
+            } catch (error) {
+                console.error('獲取任務時發生錯誤:', error);
+                showToast('無法載入任務列表，請稍後再試。', true);
+            }
+        }
+
+        /**
+         * 處理學生報名表單的提交
+         * @param {Event} event - 表單提交事件
+         * @param {number} taskId - 任務的 ID
+         */
+        async function handleSignup(event, taskId) {
+            event.preventDefault();
+            const form = event.target;
+            const studentNameInput = form.querySelector('input[name="student_name"]');
+            const studentName = studentNameInput.value.trim();
+
+            if (!studentName) {
+                showToast('請輸入您的姓名！', true);
+                return;
+            }
+
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = '報名中...';
+
+            try {
+                const response = await fetch(`/tasks/${taskId}/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ student_name: studentName }),
+                });
+
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.detail || '報名失敗');
+                }
+                
+                showToast(`'${studentName}' 您已成功報名！`);
+                fetchTasks(); // 報名成功後，立即重新整理看板
+
+            } catch (error) {
+                console.error('報名錯誤:', error);
+                showToast(error.message, true);
+                // 發生錯誤時，恢復按鈕狀態
+                submitButton.disabled = false;
+                submitButton.textContent = '報名';
+            }
+        }
+
+        // 頁面初次載入時，獲取所有任務
+        fetchTasks();
+    </script>
+</body>
+</html>
+
