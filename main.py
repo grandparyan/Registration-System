@@ -196,3 +196,4 @@ def admin_batch_delete(request: BatchDeleteRequest):
 async def read_student_index():
     """Serves the student-facing HTML page (student.html)."""
     return FileResponse('student.html')
+
