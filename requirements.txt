@@ -1,11 +1,11 @@
-FastAPI 核心框架
+
 fastapi
 
-ASGI 伺服器，用來運行 FastAPI
+
 uvicorn[standard]
 
-正式環境用的 WSGI 伺服器
+
 gunicorn
 
-連接 PostgreSQL 資料庫的驅動程式
+
 psycopg2-binary
