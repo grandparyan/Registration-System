@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>設備報修管理後台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .table-fixed {
+            table-layout: fixed;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-gray-900">設備報修管理後台</h1>
+            <p class="text-md text-gray-600 mt-2">管理與追蹤所有設備報修請求</p>
+        </header>
+
+        <!-- Control Panel for Batch Actions -->
+        <div class="bg-white p-6 rounded-xl shadow-md mb-8 flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
+            <div class="flex items-center space-x-4">
+                <label for="status-select" class="text-sm font-medium text-gray-700">將選取項目更新為：</label>
+                <select id="status-select" class="rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="待處理">待處理</option>
+                    <option value="處理中">處理中</option>
+                    <option value="已完成">已完成</option>
+                    <option value="無法修復">無法修復</option>
+                </select>
+                <button id="update-selected-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition">更新狀態</button>
+            </div>
+            <button id="delete-selected-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition w-full sm:w-auto">刪除選取項目</button>
+        </div>
+
+        <!-- Table for displaying reports -->
+        <div class="bg-white rounded-xl shadow-md overflow-x-auto">
+            <table class="w-full text-sm text-left text-gray-600 table-fixed">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                    <tr>
+                        <th scope="col" class="p-4 w-12">
+                            <input type="checkbox" id="select-all-checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        </th>
+                        <th scope="col" class="px-6 py-3 w-16">ID</th>
+                        <th scope="col" class="px-6 py-3 w-40">地點</th>
+                        <th scope="col" class="px-6 py-3 w-32">報修者</th>
+                        <th scope="col" class="px-6 py-3">問題描述</th>
+                        <th scope="col" class="px-6 py-3 w-32">狀態</th>
+                    </tr>
+                </thead>
+                <tbody id="report-table-body">
+                    <!-- Data will be loaded here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const tableBody = document.getElementById('report-table-body');
+        const selectAllCheckbox = document.getElementById('select-all-checkbox');
+        const updateBtn = document.getElementById('update-selected-btn');
+        const deleteBtn = document.getElementById('delete-selected-btn');
+        const statusSelect = document.getElementById('status-select');
+
+        // Function to fetch and display reports
+        async function fetchAdminReports() {
+            try {
+                const response = await fetch('/admin/reports/');
+                if (!response.ok) throw new Error('無法獲取報修列表');
+                const reports = await response.json();
+                
+                tableBody.innerHTML = '';
+                if (reports.length === 0) {
+                    tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-gray-500 py-8">目前沒有任何報修紀錄。</td></tr>`;
+                    return;
+                }
+
+                reports.forEach(report => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'bg-white border-b hover:bg-gray-50';
+                    tr.innerHTML = `
+                        <td class="p-4">
+                            <input type="checkbox" class="report-checkbox rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-id="${report.id}">
+                        </td>
+                        <td class="px-6 py-4 font-medium text-gray-900">#${report.id}</td>
+                        <td class="px-6 py-4">${report.location}</td>
+                        <td class="px-6 py-4">${report.reporter_name}</td>
+                        <td class="px-6 py-4 break-words">${report.problem_description}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(report.status)}">
+                                ${report.status}
+                            </span>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('獲取錯誤:', error);
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-red-500 py-8">載入失敗，請稍後再試。</td></tr>`;
+            }
+        }
+        
+        // Helper function to get color for status badge
+        function getStatusColor(status) {
+            switch(status) {
+                case '已完成': return 'bg-green-100 text-green-800';
+                case '處理中': return 'bg-yellow-100 text-yellow-800';
+                case '無法修復': return 'bg-red-100 text-red-800';
+                case '待處理':
+                default:
+                    return 'bg-gray-200 text-gray-800';
+            }
+        }
+
+        // Event listener for "select all" checkbox
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.report-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+            });
+        });
+
+        // Function to get all selected report IDs
+        function getSelectedIds() {
+            const selected = [];
+            document.querySelectorAll('.report-checkbox:checked').forEach(checkbox => {
+                selected.push(parseInt(checkbox.dataset.id));
+            });
+            return selected;
+        }
+
+        // Event listener for batch update button
+        updateBtn.addEventListener('click', async () => {
+            const ids = getSelectedIds();
+            const status = statusSelect.value;
+            if (ids.length === 0) {
+                alert('請至少選取一個項目！');
+                return;
+            }
+
+            try {
+                const response = await fetch('/admin/reports/batch-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids, status }),
+                });
+                if (!response.ok) throw new Error('更新失敗');
+                fetchAdminReports(); // Refresh list
+                selectAllCheckbox.checked = false;
+            } catch (error) {
+                console.error('更新錯誤:', error);
+                alert('更新狀態失敗！');
+            }
+        });
+
+        // Event listener for batch delete button
+        deleteBtn.addEventListener('click', async () => {
+            const ids = getSelectedIds();
+            if (ids.length === 0) {
+                alert('請至少選取一個項目！');
+                return;
+            }
+            if (!confirm(`您確定要刪除選取的 ${ids.length} 個項目嗎？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/reports/batch-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids }),
+                });
+                if (!response.ok) throw new Error('刪除失敗');
+                fetchAdminReports(); // Refresh list
+                selectAllCheckbox.checked = false;
+            } catch (error) {
+                console.error('刪除錯誤:', error);
+                alert('刪除項目失敗！');
+            }
+        });
+
+        // Initial load
+        fetchAdminReports();
+    </script>
+</body>
+</html>

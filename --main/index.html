@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教師設備報修系統</title>
+    <!-- Importing Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles can be added here if needed */
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl font-bold text-gray-900">教師設備報修系統</h1>
+            <p class="text-md text-gray-600 mt-2">一個簡單快捷的設備問題登記平台</p>
+        </header>
+
+        <!-- Form for adding or updating a report -->
+        <div class="bg-white p-8 rounded-xl shadow-md mb-10">
+            <h2 class="text-2xl font-semibold mb-6 border-b pb-4">登記新的報修</h2>
+            <form id="reportForm" class="space-y-6">
+                <!-- Hidden input to store report ID when editing -->
+                <input type="hidden" id="reportId">
+                
+                <div>
+                    <label for="reporter_name" class="block text-sm font-medium text-gray-700 mb-1">報修者姓名</label>
+                    <input type="text" id="reporter_name" placeholder="請輸入您的姓名" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition">
+                </div>
+                
+                <div>
+                    <label for="location" class="block text-sm font-medium text-gray-700 mb-1">問題設備地點</label>
+                    <input type="text" id="location" placeholder="例如：電腦教室 A、三樓辦公室" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition">
+                </div>
+
+                <div>
+                    <label for="problem_description" class="block text-sm font-medium text-gray-700 mb-1">設備問題描述</label>
+                    <textarea id="problem_description" rows="4" placeholder="請詳細描述問題情況，例如：電腦無法開機、投影機畫面模糊" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"></textarea>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                     <button type="submit" id="submitButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out">
+                        提交報修
+                    </button>
+                    <button type="button" id="cancelButton" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out hidden">
+                        取消編輯
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Section for displaying the list of reports -->
+        <div>
+            <h2 class="text-2xl font-semibold mb-6 border-b pb-4">目前的報修列表</h2>
+            <ul id="reportList" class="space-y-4">
+                <!-- Reports will be dynamically inserted here -->
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const reportList = document.getElementById('reportList');
+        const reportForm = document.getElementById('reportForm');
+        const reportIdInput = document.getElementById('reportId');
+        const submitButton = document.getElementById('submitButton');
+        const cancelButton = document.getElementById('cancelButton');
+
+        /**
+         * Fetches all reports from the server and displays them.
+         */
+        async function fetchReports() {
+            try {
+                const response = await fetch('/reports/');
+                if (!response.ok) throw new Error('Failed to fetch reports');
+                const reports = await response.json();
+                
+                reportList.innerHTML = ''; // Clear current list
+                if (reports.length === 0) {
+                    reportList.innerHTML = `<li class="text-center text-gray-500 py-4">目前沒有任何報修紀錄。</li>`;
+                } else {
+                    reports.forEach(report => {
+                        const li = document.createElement('li');
+                        li.className = 'bg-white p-5 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between transition hover:shadow-md';
+                        li.innerHTML = `
+                            <div class="flex-grow mb-4 sm:mb-0">
+                                <div class="flex items-center mb-2">
+                                    <span class="font-bold text-blue-600 mr-2">#${report.id}</span>
+                                    <p class="font-semibold text-lg">${report.location}</p>
+                                </div>
+                                <p class="text-gray-600 mb-1"><span class="font-medium">報修人:</span> ${report.reporter_name}</p>
+                                <p class="text-gray-700"><span class="font-medium">問題描述:</span> ${report.problem_description}</p>
+                            </div>
+                            <div class="flex-shrink-0 flex space-x-3">
+                                <button onclick='handleEdit(${JSON.stringify(report)})' class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg transition">編輯</button>
+                                <button onclick='deleteReport(${report.id})' class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition">刪除</button>
+                            </div>
+                        `;
+                        reportList.appendChild(li);
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching reports:', error);
+                reportList.innerHTML = `<li class="text-center text-red-500 py-4">無法載入報修列表，請稍後再試。</li>`;
+            }
+        }
+
+        /**
+         * Deletes a report by its ID.
+         * @param {number} reportId - The ID of the report to delete.
+         */
+        async function deleteReport(reportId) {
+            // Using a custom confirmation modal would be better in a real app
+            if (confirm(`您確定要刪除 ID 為 ${reportId} 的報修紀錄嗎？`)) {
+                try {
+                    const response = await fetch(`/reports/${reportId}`, { method: 'DELETE' });
+                    if (!response.ok) throw new Error('Failed to delete report');
+                    fetchReports(); // Refresh the list on success
+                } catch (error) {
+                    console.error('Error deleting report:', error);
+                    alert('刪除失敗！');
+                }
+            }
+        }
+
+        /**
+         * Populates the form with a report's data for editing.
+         * @param {object} report - The report object to edit.
+         */
+        function handleEdit(report) {
+            reportIdInput.value = report.id;
+            document.getElementById('reporter_name').value = report.reporter_name;
+            document.getElementById('location').value = report.location;
+            document.getElementById('problem_description').value = report.problem_description;
+            
+            submitButton.textContent = '更新報修紀錄';
+            submitButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            submitButton.classList.add('bg-green-600', 'hover:bg-green-700');
+            cancelButton.classList.remove('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        /**
+         * Resets the form to its initial state for creating a new report.
+         */
+        function resetForm() {
+            reportForm.reset();
+            reportIdInput.value = '';
+            submitButton.textContent = '提交報修';
+            submitButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+            submitButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            cancelButton.classList.add('hidden');
+        }
+        
+        cancelButton.addEventListener('click', resetForm);
+
+        // Handles form submission for both creating and updating reports.
+        reportForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            const id = reportIdInput.value;
+            const reportData = {
+                reporter_name: document.getElementById('reporter_name').value,
+                location: document.getElementById('location').value,
+                problem_description: document.getElementById('problem_description').value,
+            };
+
+            const isUpdating = !!id;
+            const url = isUpdating ? `/reports/${id}` : '/reports/';
+            const method = isUpdating ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(reportData),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Request failed');
+                }
+                
+                resetForm();
+                fetchReports();
+
+            } catch (error) {
+                console.error('Error submitting form:', error);
+                alert(`操作失敗: ${error.message}`);
+            }
+        });
+        
+        // Initial fetch of reports when the page loads.
+        fetchReports();
+    </script>
+
+</body>
+</html>
