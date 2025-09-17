@@ -26,6 +26,7 @@ class BatchDeleteRequest(BaseModel):
     ids: List[int]
 
 # --- FastAPI Application Instance ---
+# 這就是 Gunicorn 指令中 main:app 或 app:app 裡的第二個 'app'
 app = FastAPI()
 
 # --- Database Connection ---
@@ -92,9 +93,9 @@ def create_report(report: Report):
     conn.close()
     return {"id": new_report_id, **report.dict()}
 
-@app.get("/reports/", response_model=List[dict], tags=["User"])
+@app.get("/reports/", response_model=List[dict], tags=["User", "Student"])
 def read_reports():
-    """Gets all repair reports."""
+    """Gets all repair reports for all views."""
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection failed")
@@ -154,7 +155,7 @@ async def read_teacher_index():
 
 @app.get("/admin/reports/", response_model=List[dict], tags=["Admin"])
 def admin_read_reports():
-    """Gets all reports for the admin/teacher view. It uses the same logic as the user view."""
+    """Gets all reports for the admin/teacher view."""
     return read_reports()
 
 @app.post("/admin/reports/batch-update", response_model=dict, tags=["Admin"])
@@ -166,7 +167,6 @@ def admin_batch_update_status(request: BatchUpdateRequest):
     
     query = "UPDATE reports SET status = %s WHERE id = ANY(%s)"
     with conn.cursor() as cursor:
-        # Note: psycopg2 requires a list/tuple for the ANY operator
         cursor.execute(query, (request.status, request.ids))
         affected_rows = cursor.rowcount
         conn.commit()
@@ -190,3 +190,9 @@ def admin_batch_delete(request: BatchDeleteRequest):
 
     return {"message": f"Successfully deleted {affected_rows} reports."}
 
+# ========== STUDENT ENDPOINT (for student.html) ==========
+
+@app.get("/student/", include_in_schema=False)
+async def read_student_index():
+    """Serves the student-facing HTML page (student.html)."""
+    return FileResponse('student.html')
