@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>設備報修表單</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter font -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <!-- 表單容器 -->
+    <div class="w-full max-w-lg bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
+        <h1 class="text-3xl font-bold text-gray-800 text-center mb-2">設備報修</h1>
+        <p class="text-gray-500 text-center mb-8">請填寫以下資訊以提交報修單。</p>
+
+        <form id="repairForm" class="space-y-6">
+            <!-- 報修者姓名 -->
+            <div>
+                <label for="reporterName" class="block text-sm font-medium text-gray-700 mb-1">報修者姓名</label>
+                <input type="text" id="reporterName" name="reporter_name" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200">
+            </div>
+
+            <!-- 問題設備的位置 -->
+            <div>
+                <label for="location" class="block text-sm font-medium text-gray-700 mb-1">問題設備的位置</label>
+                <input type="text" id="location" name="location" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200">
+            </div>
+
+            <!-- 遇到的問題 -->
+            <div>
+                <label for="problemDescription" class="block text-sm font-medium text-gray-700 mb-1">遇到的問題</label>
+                <textarea id="problemDescription" name="problem_description" rows="4" required
+                          class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200 resize-none"></textarea>
+            </div>
+
+            <!-- 提交按鈕 -->
+            <button type="submit"
+                    class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-xl hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                提交報修單
+            </button>
+        </form>
+
+        <!-- 提交狀態訊息 -->
+        <div id="statusMessage" class="mt-6 text-center text-sm font-medium"></div>
+    </div>
+
+    <script>
+        document.getElementById('repairForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const statusMessage = document.getElementById('statusMessage');
+            statusMessage.textContent = '提交中...';
+            statusMessage.className = 'mt-6 text-center text-sm font-medium text-gray-500';
+
+            const form = event.target;
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('/submit_report', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    statusMessage.textContent = result.message;
+                    statusMessage.className = 'mt-6 text-center text-sm font-medium text-green-600';
+                    form.reset(); // 清空表單
+                } else {
+                    statusMessage.textContent = result.message;
+                    statusMessage.className = 'mt-6 text-center text-sm font-medium text-red-600';
+                }
+            } catch (error) {
+                statusMessage.textContent = '提交失敗，請檢查網路連線。';
+                statusMessage.className = 'mt-6 text-center text-sm font-medium text-red-600';
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>
