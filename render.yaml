@@ -4,7 +4,7 @@
 services:
   # 您的 FastAPI Web 服務
   - type: web
-    name: equipment-repair-system # <-- (名稱 A)
+    name: equipment-repair-system
     env: python
     plan: free
     autoDeploy: true
@@ -13,11 +13,28 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          # 🔴 關鍵檢查點：這裡的 name 必須和下面 databases 區塊的 name 完全一致！
-          name: equipment-db # <-- (名稱 B)
+          name: equipment-db
           property: connectionString
+      # 為了 MySQL，您需要新增這些環境變數
+      - key: MYSQL_USER
+        fromDatabase:
+          name: equipment-db
+          property: user
+      - key: MYSQL_PASSWORD
+        fromDatabase:
+          name: equipment-db
+          property: password
+      - key: MYSQL_HOST
+        fromDatabase:
+          name: equipment-db
+          property: host
+      - key: MYSQL_DATABASE
+        fromDatabase:
+          name: equipment-db
+          property: databaseName
 
 databases:
-  # 您的 PostgreSQL 資料庫服務
-  - name: equipment-db # <-- (名稱 C)
+  # 您的 MySQL 資料庫服務
+  - name: equipment-db
     plan: free
+    type: mysql # <-- 關鍵修改：從 postgres 改為 mysql
