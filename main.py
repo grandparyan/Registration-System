@@ -1,28 +1,31 @@
+# 這是您的後台服務主程式碼。
+# 檔案名稱: main.py
+
 import os
 import json
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Boolean
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
-from pydantic import BaseModel  # 修正：新增此行以匯入 BaseModel
 
-# 確保已經安裝所有必要的函式庫:
-# pip install fastapi uvicorn sqlalchemy pydantic pymysql
+# 確保已經安裝所有必要的函式庫：
+# pip install fastapi uvicorn sqlalchemy pydantic psycopg2-binary
 
 # --- 資料庫連線設定 ---
 # 為了部署到 Render，我們優先使用 DATABASE_URL 環境變數。
-# 如果是本地開發，則使用 MYSQL_* 環境變數或預設值。
+# 如果是本地開發，則使用環境變數或預設值。
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
     print("警告：未找到 DATABASE_URL。正在嘗試使用本地環境變數或預設值。")
-    DB_USER = os.getenv("MYSQL_USER", "user")
-    DB_PASSWORD = os.getenv("MYSQL_PASSWORD", "password")
-    DB_HOST = os.getenv("MYSQL_HOST", "localhost")
-    DB_DATABASE = os.getenv("MYSQL_DATABASE", "repair_db")
-    
-    # 使用 mysql+pymysql 格式來建立本地連接字串
-    DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_DATABASE}"
+    DB_USER = os.getenv("PG_USER", "user")
+    DB_PASSWORD = os.getenv("PG_PASSWORD", "password")
+    DB_HOST = os.getenv("PG_HOST", "localhost")
+    DB_DATABASE = os.getenv("PG_DATABASE", "repair_db")
+
+    # 使用 postgresql:// 格式來建立本地連接字串
+    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_DATABASE}"
 
 SQLALCHEMY_DATABASE_URL = DATABASE_URL
 
@@ -70,8 +73,6 @@ class Task(Base):
         self.assigned_students_json = json.dumps(students)
 
 # 創建資料表 (如果不存在)
-# 備註：在 Render 上，您通常會使用 Alembic 等工具來管理資料庫遷移，
-# 但對於這個簡單的範例，直接創建資料表即可。
 try:
     Base.metadata.create_all(bind=engine)
     print("資料庫表格建立成功或已存在。")
