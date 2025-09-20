@@ -29,28 +29,40 @@ class RepairRequest(BaseModel):
 
 # Google Sheets service account setup
 # Read credentials from an environment variable for security
-try:
-    creds_json = os.environ.get("GOOGLE_CREDS")
-    if not creds_json:
-        raise ValueError("GOOGLE_CREDS environment variable not found.")
+def initialize_gspread_client():
+    """
+    Initializes and returns a gspread client.
+    Handles potential connection errors gracefully.
+    """
+    try:
+        creds_json = os.environ.get("GOOGLE_CREDS")
+        if not creds_json:
+            print("GOOGLE_CREDS environment variable not found.")
+            return None
+        
+        SERVICE_ACCOUNT_CREDENTIALS = json.loads(creds_json)
+        gc = gspread.service_account_from_dict(SERVICE_ACCOUNT_CREDENTIALS)
+        
+        # Replace "YOUR_SPREADSHEET_ID_HERE" with your actual Google Sheet ID
+        spreadsheet_id = os.environ.get("SPREADSHEET_ID", "YOUR_SPREADSHEET_ID_HERE")
+        
+        spreadsheet = gc.open_by_key(spreadsheet_id)
+        worksheet = spreadsheet.worksheet("Sheet1")  # Change "Sheet1" if your worksheet has a different name
+        return worksheet
     
-    SERVICE_ACCOUNT_CREDENTIALS = json.loads(creds_json)
-    gc = gspread.service_account_from_dict(SERVICE_ACCOUNT_CREDENTIALS)
-    
-    # Replace "YOUR_SPREADSHEET_ID_HERE" with your actual Google Sheet ID
-    spreadsheet_id = os.environ.get("SPREADSHEET_ID", "YOUR_SPREADSHEET_ID_HERE")
-    spreadsheet = gc.open_by_key(spreadsheet_id)
-    worksheet = spreadsheet.worksheet("Sheet1")  # Change "Sheet1" if your worksheet has a different name
-    
-except Exception as e:
-    print(f"Error connecting to Google Sheets: {e}")
-    worksheet = None
+    except Exception as e:
+        print(f"Error connecting to Google Sheets: {e}")
+        return None
+
+# Initialize worksheet on application startup
+worksheet = initialize_gspread_client()
 
 @app.post("/submit")
 async def submit_repair_request(request: RepairRequest):
     """
     Receives repair form data and writes it to Google Sheets.
     """
+    # Check if the worksheet was successfully initialized
     if not worksheet:
         raise HTTPException(status_code=500, detail="Cannot connect to Google Sheets. Please check server configuration.")
 
