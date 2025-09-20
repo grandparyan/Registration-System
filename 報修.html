@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>設備報修系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            transition: all 0.2s ease-in-out;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: background-color 0.2s;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: #2563eb;
+        }
+        .message-box {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+        }
+        .message-success {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        .message-error {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-2xl font-bold mb-6 text-center">設備報修系統 - 老師專用</h1>
+        <form id="repairForm" class="space-y-4">
+            <div class="form-group">
+                <label for="reporterName">報修者姓名：</label>
+                <input type="text" id="reporterName" name="reporterName" required class="w-full">
+            </div>
+
+            <div class="form-group">
+                <label for="equipment">設備名稱：</label>
+                <input type="text" id="equipment" name="equipment" required class="w-full">
+            </div>
+
+            <div class="form-group">
+                <label for="problemDescription">設備問題描述：</label>
+                <textarea id="problemDescription" name="problemDescription" rows="4" required class="w-full"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="assignedTeacher">需要哪位老師協助：</label>
+                <select id="assignedTeacher" name="assignedTeacher" class="w-full">
+                    <option value="">請選擇</option>
+                    <!-- 動態載入老師名單 -->
+                </select>
+            </div>
+            
+            <button type="submit" class="btn w-full">提交報修</button>
+        </form>
+        
+        <div id="messageBox" class="message-box"></div>
+    </div>
+
+    <script type="module">
+        // 請注意：這個程式碼需要一個 Google Sheets API 的服務帳戶金鑰。
+        // 為了安全起見，請勿將金鑰直接放在公開的 GitHub 儲存庫中。
+        // 建議使用 GitHub Actions 或其他 CI/CD 工具來管理金鑰。
+        
+        // 你的 Google Sheets API 服務帳戶金鑰 (JSON 格式)
+        const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID_HERE';
+        const GOOGLE_SERVICE_ACCOUNT_EMAIL = 'YOUR_SERVICE_ACCOUNT_EMAIL_HERE';
+        const GOOGLE_PRIVATE_KEY = `YOUR_PRIVATE_KEY_HERE`;
+
+        // 在這裡加入你學校資訊組老師的名字
+        const teachers = [
+            "王老師", 
+            "陳老師", 
+            "張老師"
+        ];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const assignedTeacherSelect = document.getElementById('assignedTeacher');
+            teachers.forEach(teacher => {
+                const option = document.createElement('option');
+                option.value = teacher;
+                option.textContent = teacher;
+                assignedTeacherSelect.appendChild(option);
+            });
+        });
+        
+        document.getElementById('repairForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const form = e.target;
+            const formData = new FormData(form);
+            const data = {
+                reporterName: formData.get('reporterName'),
+                equipment: formData.get('equipment'),
+                problemDescription: formData.get('problemDescription'),
+                assignedTeacher: formData.get('assignedTeacher'),
+                timestamp: new Date().toLocaleString('zh-TW')
+            };
+            
+            const messageBox = document.getElementById('messageBox');
+            messageBox.style.display = 'none';
+
+            try {
+                // 這裡需要後端來處理與 Google Sheets API 的連線
+                // 因為瀏覽器端直接使用服務帳戶金鑰不安全，且會遇到 CORS 問題。
+                // 我會提供一個 Python Flask 的範例來處理這個部分，但目前無法直接執行。
+                showMessage('提交中...', 'loading');
+                
+                // 模擬 API 呼叫
+                console.log('正在向 Google Sheets 提交資料:', data);
+                
+                // 這裡應該是你後端 API 的 URL
+                // const backendUrl = 'YOUR_BACKEND_API_URL_HERE';
+                // const response = await fetch(backendUrl, {
+                //     method: 'POST',
+                //     headers: {
+                //         'Content-Type': 'application/json'
+                //     },
+                //     body: JSON.stringify(data)
+                // });
+                
+                // const result = await response.json();
+                
+                // 模擬成功回應
+                setTimeout(() => {
+                    form.reset();
+                    showMessage('報修已成功提交！', 'success');
+                }, 1500);
+
+            } catch (error) {
+                console.error('提交失敗:', error);
+                showMessage('提交失敗，請稍後再試。', 'error');
+            }
+        });
+
+        function showMessage(message, type) {
+            const messageBox = document.getElementById('messageBox');
+            messageBox.textContent = message;
+            messageBox.className = 'message-box ' + (type === 'success' ? 'message-success' : 'message-error');
+            messageBox.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
