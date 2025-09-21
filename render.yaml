@@ -1,29 +1,36 @@
-# `render.yaml`
-# This file defines the services for your application on Render.
+# 這個檔案是您的應用程式在 Render 上的部署藍圖。
+# 它會告訴 Render 如何建置和啟動您的 Flask 服務。
 
-# 服務版本，目前為 v2。
 services:
-  # 後端 API 服務
+  # 定義一個網頁服務
   - type: web
-    name: registration-system-api
+    # 服務名稱，會顯示在 Render 面板上
+    name: equipment-repair-board
+    # 設定環境為 Python
     env: python
+    # 在部署時執行的指令，用於安裝 requirements.txt 中的套件
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "uvicorn app:app --host 0.0.0.0 --port $PORT"
-    autoDeploy: true
+    # 啟動應用程式的指令，我們使用 gunicorn 作為生產環境的伺服器
+    startCommand: "gunicorn --bind 0.0.0.0:$PORT app:app"
+    # 設定應用程式所需的環境變數
     envVars:
-      - key: GOOGLE_CREDS
-        sync: false
-      - key: SPREADSHEET_ID
-        sync: false
-      - key: WORKSHEET_NAME
-        sync: false
-    # 這是你的後端 URL，將在前端使用。
-    # 請將其替換為你實際的後端服務 URL。
-    # 例如：https://registration-system-e3vd.onrender.com
-
-  # 前端靜態網站服務
-  - type: static
-    name: registration-system-frontend
-    buildCommand: ""
-    publishPath: "."
-    autoDeploy: true
+      # 這個變數將儲存您的 Google 服務帳號金鑰內容
+      # **重要：請在 Render 儀表板上設定這個變數的值**
+      # 將您的 credentials.json 檔案內容完整貼上。
+      - key: GOOGLE_SERVICE_ACCOUNT_CREDENTIALS
+        sync: {
+  "type": "service_account",
+  "project_id": "neat-cycling-472712-d9",
+  "private_key_id": "26f5c58ecb1a16d21a6f959b7259581138329199",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDDOFpRlkrMeqsS\nTB8ScjanevPSwD8DTvyRIzhmX0F79o1pK6XkDw0rUQ9f2gqtGe6QDMFrHPnwPCY7\nYy5NPowdus09efAy+Z3xuBkatV9avk3dJMfWuMQMKYWr4/lI53q6I8UAMLNmMF7a\nbmUuCIncil+PLQ9GKVx1gdfmWvO8/h5KMOcPb0M+1nJQWj2XoklORfvIEozOgbk7\nNDr1Z1TfBm2xEgB6b8iLJ8al8F44viysD6gpyOMIcHxutX3ZEn8Fet/FvJ/ZLeP2\nB01SldRqy7egLB3kNbm9qzRMHvBWzhZQdLROTxMIzEPDx6FZClFX7nVyTLFDsWxW\nDmQUh2M7AgMBAAECggEAHhSn2McnaBHwHECoelzTo8OOoHHJA9x+5GpLPX2osc46\n2fLE0WWpqiayZMWh5tcGayHcB9eOLQCdBNedLH/acpZJxmhB+nN7bTc91F9lfa5c\ngcUyGcRHSSHOHBS5C7fHXGPjQ3U9n3MNRUEaIW66t3CG6vaO0kkl8GFSgDHm5BRK\n3Jl8/HZb3WLWSjHkldUROMbNvIg5lQwZrRD7C/1HIVo0aKRvQG7yvWFsroJXKku7\n98chcravAAw7ZAl/X9rNEoc5kTIieiC0uybew0D5Qr3sCD+RMRszuy4H1lKBAd8R\nxWIlj36vldyzuAr2SYAJK9r4jmAmYI/Pp5pc7Kc6yQKBgQD0VYj260iZgXheFPY6\nm+a7hGTDk+aM7lqN7ND+rhyuqa5RD9XAOfXKHSv0zumlLrjZM89G+oAo4CSmXKfD\nJmsBZP8Xx+0nYKcMXWBBlTIp/79M3Cwkfpn7RHWeUYGyf0iqIMworpVNQBYYRlvz\nAhLcCZSBdozCu0/kQlJHUsTe9wKBgQDMioDxNzS9xfO5XaKGDbK9J/j39ws319RB\nBONA88UH8dxL6ay+Rgxy8zkOlyRS5LcuFNLO320NtjQjmmSC4jDcE0frcB/XNU8S\n/Pm1UOltqwvFqRiWSKxYLHQRBbwK9BbpNn8oVZGOTYIeWzSLFQEbuCljNqwYzLjE\nLnzh+gJY3QKBgBA5nd7HwQpwjo2w1qkNsUTChe5249h3+4txLm+7ICx5GBpJ8ufQ\n8YF6bnDTTLCraZsC1cDg4aHVQJnLjVhoNLLjAg2SOS1kPbOUf8/bGHmxggKYnFXQ\nEmmdIjJhNzujODAT/Xq2HTQEDXOPOIvql1YFTNdMCAzmY2fE/7G8zVYBAoGBAKXK\nakOa7NwZ1LjeZbrk5YkfGlXbX7Nu9POSw6VFMeKDr320tbkwzCxsa0YhSmcKTlRC\nurDGNv3TPyXQokHYl6P62OPEaXqmEicg+EJ4iAzFhPA9ZNmDpHZ/6cBWdpomSV/V\nNXJ7EVVYC+0RHmDRsKlIN/vcN9iOMAGMcNs2K6rdAoGBAKTSGpkLGB+2hBO4bsuL\nKeyKzI1G7cgS+8mYG0FlKudCjZR7EL2Ktl5rz8rxjwoAjcRu5Kj6SRZjotTR/NXd\n2ooqBDGuU7NYXj51BrEKXPL/BSsj5cnmWcVoU71TlJKn/4+v095E8KZD8NLBjPlw\nvGKDxZwleIRAQBF3ckZXiAaR\n-----END PRIVATE KEY-----\n",
+  "client_email": "id-466@neat-cycling-472712-d9.iam.gserviceaccount.com",
+  "client_id": "113353112462402834600",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/id-466%40neat-cycling-472712-d9.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
+      # 您的 Google 試算表名稱
+      - key: GOOGLE_SHEET_NAME
+        value: "設備報修紀錄"
