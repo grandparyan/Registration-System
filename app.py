@@ -47,7 +47,7 @@ def initialize_gspread_client():
         spreadsheet_id = os.environ.get("SPREADSHEET_ID", "YOUR_SPREADSHEET_ID_HERE")
         
         spreadsheet = gc.open_by_key(spreadsheet_id)
-        worksheet = spreadsheet.worksheet("Sheet1")  # Change "Sheet1" if your worksheet has a different name
+        worksheet = spreadsheet.worksheet("設備報修")  # Change "Sheet1" if your worksheet has a different name
         return worksheet
     
     except Exception as e:
