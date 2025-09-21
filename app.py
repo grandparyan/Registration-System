@@ -44,10 +44,14 @@ def initialize_gspread_client():
         gc = gspread.service_account_from_dict(SERVICE_ACCOUNT_CREDENTIALS)
         
         # Replace "YOUR_SPREADSHEET_ID_HERE" with your actual Google Sheet ID
-        spreadsheet_id = os.environ.get("SPREADSHEET_ID", "YOUR_SPREADSHEET_ID_HERE")
+        spreadsheet_id = os.environ.get("SPREADSHEET_ID")
+        if not spreadsheet_id:
+            print("SPREADSHEET_ID environment variable not found.")
+            return None
         
         spreadsheet = gc.open_by_key(spreadsheet_id)
-        worksheet = spreadsheet.worksheet("設備報修")  # Change "Sheet1" if your worksheet has a different name
+        worksheet_name = os.environ.get("WORKSHEET_NAME", "Sheet1")
+        worksheet = spreadsheet.worksheet(worksheet_name)
         return worksheet
     
     except Exception as e:
@@ -56,6 +60,13 @@ def initialize_gspread_client():
 
 # Initialize worksheet on application startup
 worksheet = initialize_gspread_client()
+
+@app.get("/")
+async def root():
+    """
+    A simple root endpoint to confirm the server is running.
+    """
+    return {"message": "Server is running! Try POST to /submit"}
 
 @app.post("/submit")
 async def submit_repair_request(request: RepairRequest):
@@ -84,9 +95,3 @@ async def submit_repair_request(request: RepairRequest):
     except Exception as e:
         print(f"Error writing to Google Sheets: {e}")
         raise HTTPException(status_code=500, detail=f"Error writing to Google Sheets: {e}")
-
-# To run the FastAPI server locally, use the command:
-# uvicorn app:app --reload
-
-# For production deployment (e.g., on Render), the command should be:
-# uvicorn app:app --host 0.0.0.0 --port $PORT
