@@ -1,0 +1,29 @@
+# `render.yaml`
+# This file defines the services for your application on Render.
+
+# 服務版本，目前為 v2。
+services:
+  # 後端 API 服務
+  - type: web
+    name: registration-system-api
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app:app --host 0.0.0.0 --port $PORT"
+    autoDeploy: true
+    envVars:
+      - key: GOOGLE_CREDS
+        sync: false
+      - key: SPREADSHEET_ID
+        sync: false
+      - key: WORKSHEET_NAME
+        sync: false
+    # 這是你的後端 URL，將在前端使用。
+    # 請將其替換為你實際的後端服務 URL。
+    # 例如：https://registration-system-e3vd.onrender.com
+
+  # 前端靜態網站服務
+  - type: static
+    name: registration-system-frontend
+    buildCommand: ""
+    publishPath: "."
+    autoDeploy: true
