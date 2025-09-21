@@ -1,5 +1,6 @@
 import os
 import gspread
+import json
 from flask import Flask, jsonify
 from google.oauth2.service_account import Credentials
 
@@ -10,11 +11,14 @@ GOOGLE_SERVICE_ACCOUNT_CREDENTIALS = os.environ.get('GOOGLE_SERVICE_ACCOUNT_CRED
 if not GOOGLE_SERVICE_ACCOUNT_CREDENTIALS:
     raise ValueError("GOOGLE_SERVICE_ACCOUNT_CREDENTIALS environment variable not set.")
 
+# 初始化 data 變數
+data = []
+
 try:
     # 設置 Google 憑證
     scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
     creds = Credentials.from_service_account_info(
-        eval(GOOGLE_SERVICE_ACCOUNT_CREDENTIALS), # 使用 eval 來解析 JSON 字串
+        json.loads(GOOGLE_SERVICE_ACCOUNT_CREDENTIALS), # 使用 json.loads 來解析 JSON 字串
         scopes=scopes
     )
     client = gspread.authorize(creds)
@@ -33,7 +37,7 @@ try:
 
 except Exception as e:
     print(f"連線到 Google 試算表時發生錯誤：{e}")
-
+    
 @app.route('/')
 def home():
     if not data:
