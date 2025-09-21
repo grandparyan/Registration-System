@@ -20,7 +20,7 @@ try:
     client = gspread.authorize(creds)
     
     # 替換成您的 Google 試算表名稱或 ID
-    SPREADSHEET_NAME = "您的試算表名稱"
+    SPREADSHEET_NAME = "設備報修"
     spreadsheet = client.open(SPREADSHEET_NAME)
     
     # 讀取試算表中的所有資料
