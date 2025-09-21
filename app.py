@@ -3,24 +3,40 @@ import gspread
 import json
 from flask import Flask, jsonify
 from google.oauth2.service_account import Credentials
+from json.decoder import JSONDecodeError
 
 app = Flask(__name__)
 
 # 使用 os.environ 讀取環境變數，確保程式碼可以在 Render 上運作
 GOOGLE_SERVICE_ACCOUNT_CREDENTIALS = os.environ.get('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS')
-if not GOOGLE_SERVICE_ACCOUNT_CREDENTIALS:
-    raise ValueError("GOOGLE_SERVICE_ACCOUNT_CREDENTIALS environment variable not set.")
 
 # 初始化 data 變數
 data = []
 
+def get_credentials():
+    """安全地解析 JSON 憑證字串並返回憑證對象。"""
+    if not GOOGLE_SERVICE_ACCOUNT_CREDENTIALS:
+        raise ValueError("GOOGLE_SERVICE_ACCOUNT_CREDENTIALS environment variable not set.")
+    
+    try:
+        # 嘗試解析 JSON 內容
+        creds_info = json.loads(GOOGLE_SERVICE_ACCOUNT_CREDENTIALS)
+        scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+        creds = Credentials.from_service_account_info(
+            creds_info, 
+            scopes=scopes
+        )
+        return creds
+    except JSONDecodeError as e:
+        # 如果 JSON 解析失敗，拋出更清晰的錯誤訊息
+        raise ValueError(f"無法解析 JSON 憑證。請確認內容正確無誤。錯誤訊息: {e}")
+    except Exception as e:
+        # 捕捉其他可能的錯誤
+        raise ValueError(f"憑證解析時發生未知錯誤：{e}")
+
 try:
     # 設置 Google 憑證
-    scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-    creds = Credentials.from_service_account_info(
-        json.loads(GOOGLE_SERVICE_ACCOUNT_CREDENTIALS), # 使用 json.loads 來解析 JSON 字串
-        scopes=scopes
-    )
+    creds = get_credentials()
     client = gspread.authorize(creds)
     
     # 替換成您的 Google 試算表名稱或 ID
