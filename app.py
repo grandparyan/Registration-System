@@ -1,97 +1,112 @@
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+# 程式碼說明：
+# 1. 初始化 Flask 應用程式。
+# 2. 透過 gspread 函式庫連線到 Google 試算表。
+# 3. 定義不同的路由 (routes) 來處理網頁請求。
+# 4. 實作 CRUD (建立、讀取、更新、刪除) 功能。
+
+from flask import Flask, render_template, request, redirect, url_for
 import gspread
-from pydantic import BaseModel
-import json
-from datetime import datetime
 import os
+from datetime import datetime
 
-# You'll need to install the following libraries:
-# pip install fastapi uvicorn gspread pydantic
+# 檢查 credentials.json 檔案是否存在
+if not os.path.exists('credentials.json'):
+    print("錯誤：找不到 'credentials.json' 檔案。")
+    print("請依照 README.md 說明，從 Google Cloud Console 下載服務帳號金鑰檔案，並重新命名為 'credentials.json'。")
+    exit()
 
-app = FastAPI()
+# 啟用 Google 試算表 API
+try:
+    gc = gspread.service_account(filename='credentials.json')
+    # 請將下方 '你的試算表名稱' 換成您自己的 Google 試算表名稱
+    spreadsheet_name = "設備報修紀錄"
+    sh = gc.open(spreadsheet_name)
+    worksheet = sh.sheet1
+except Exception as e:
+    print(f"連線到 Google 試算表時發生錯誤：{e}")
+    print("請確認以下事項：")
+    print("- 您的 'credentials.json' 檔案是否正確。")
+    print("- Google Sheets API 是否已在您的 Google Cloud 專案中啟用。")
+    print("- 您是否已將試算表分享給服務帳號的電子郵件地址。")
+    exit()
 
-# Add CORS middleware to allow requests from your frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Adjust this to your frontend URL in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = Flask(__name__, template_folder='templates')
 
-# Pydantic model for request body validation
-class RepairRequest(BaseModel):
-    reporterName: str
-    equipment: str
-    problemDescription: str
-    assignedTeacher: str
+@app.route('/')
+def index():
+    """顯示主頁面，包含報修表單和所有報修紀錄。"""
+    try:
+        # 讀取所有報修紀錄
+        records = worksheet.get_all_records()
+        return render_template('index.html', records=records)
+    except Exception as e:
+        return f"讀取資料時發生錯誤：{e}"
 
-# Google Sheets service account setup
-# Read credentials from an environment variable for security
-def initialize_gspread_client():
+@app.route('/submit_request', methods=['POST'])
+def submit_request():
+    """處理表單提交，將新紀錄寫入 Google 試算表。"""
+    try:
+        reporter_name = request.form['reporter_name']
+        location = request.form['location']
+        problem_description = request.form['problem_description']
+        teacher = request.form['teacher']
+        
+        # 自動產生報修時間
+        request_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        # 新增一列資料
+        worksheet.append_row([reporter_name, location, problem_description, teacher, request_time])
+        
+        return redirect(url_for('index'))
+    except Exception as e:
+        return f"提交資料時發生錯誤：{e}"
+
+@app.route('/edit/<int:row_index>', methods=['GET', 'POST'])
+def edit_request(row_index):
     """
-    Initializes and returns a gspread client.
-    Handles potential connection errors gracefully.
+    處理報修紀錄的編輯：
+    - GET 請求：顯示編輯表單，並填入現有資料。
+    - POST 請求：更新試算表中的資料。
     """
     try:
-        creds_json = os.environ.get("GOOGLE_CREDS")
-        if not creds_json:
-            print("GOOGLE_CREDS environment variable not found.")
-            return None
+        # 因為 get_all_records() 不包含標題列，所以實際列號要 +2 (標題列 + 0-based index)
+        sheet_row_index = row_index + 1
         
-        SERVICE_ACCOUNT_CREDENTIALS = json.loads(creds_json)
-        gc = gspread.service_account_from_dict(SERVICE_ACCOUNT_CREDENTIALS)
-        
-        # Replace "YOUR_SPREADSHEET_ID_HERE" with your actual Google Sheet ID
-        spreadsheet_id = os.environ.get("SPREADSHEET_ID")
-        if not spreadsheet_id:
-            print("SPREADSHEET_ID environment variable not found.")
-            return None
-        
-        spreadsheet = gc.open_by_key(spreadsheet_id)
-        worksheet_name = os.environ.get("WORKSHEET_NAME", "Sheet1")
-        worksheet = spreadsheet.worksheet(worksheet_name)
-        return worksheet
-    
+        if request.method == 'POST':
+            # 從表單取得更新後的資料
+            updated_data = [
+                request.form['reporter_name'],
+                request.form['location'],
+                request.form['problem_description'],
+                request.form['teacher'],
+                request.form['request_time']
+            ]
+            
+            # 更新試算表中的該列資料
+            worksheet.update(f'A{sheet_row_index}:E{sheet_row_index}', [updated_data])
+            return redirect(url_for('index'))
+        else:
+            # 取得該列資料，用來填入編輯表單
+            record = worksheet.row_values(sheet_row_index)
+            # 檢查是否讀取到資料
+            if not record:
+                 return "找不到該筆報修紀錄！", 404
+            
+            return render_template('edit.html', record=record, row_index=row_index)
+
     except Exception as e:
-        print(f"Error connecting to Google Sheets: {e}")
-        return None
+        return f"處理編輯請求時發生錯誤：{e}"
 
-# Initialize worksheet on application startup
-worksheet = initialize_gspread_client()
-
-@app.get("/")
-async def root():
-    """
-    A simple root endpoint to confirm the server is running.
-    """
-    return {"message": "Server is running! Try POST to /submit"}
-
-@app.post("/submit")
-async def submit_repair_request(request: RepairRequest):
-    """
-    Receives repair form data and writes it to Google Sheets.
-    """
-    # Check if the worksheet was successfully initialized
-    if not worksheet:
-        raise HTTPException(status_code=500, detail="Cannot connect to Google Sheets. Please check server configuration.")
-
+@app.route('/delete/<int:row_index>')
+def delete_request(row_index):
+    """處理刪除請求，從試算表中刪除指定的列。"""
     try:
-        # Prepare the data row
-        row = [
-            request.reporterName,
-            request.equipment,
-            request.problemDescription,
-            request.assignedTeacher,
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ]
-        
-        # Append the row to the worksheet
-        worksheet.append_row(row)
-        
-        return {"message": "Data successfully written to Google Sheets!"}
-    
+        # 因為 get_all_records() 不包含標題列，所以實際列號要 +2 (標題列 + 0-based index)
+        sheet_row_index = row_index + 1
+        worksheet.delete_rows(sheet_row_index)
+        return redirect(url_for('index'))
     except Exception as e:
-        print(f"Error writing to Google Sheets: {e}")
-        raise HTTPException(status_code=500, detail=f"Error writing to Google Sheets: {e}")
+        return f"刪除資料時發生錯誤：{e}"
+
+if __name__ == '__main__':
+    app.run(debug=True)
