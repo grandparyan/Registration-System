@@ -29,9 +29,11 @@ def get_credentials():
         return creds
     except JSONDecodeError as e:
         # 如果 JSON 解析失敗，拋出更清晰的錯誤訊息
+        print(f"嘗試解析的 JSON 憑證內容：{GOOGLE_SERVICE_ACCOUNT_CREDENTIALS}")
         raise ValueError(f"無法解析 JSON 憑證。請確認內容正確無誤。錯誤訊息: {e}")
     except Exception as e:
         # 捕捉其他可能的錯誤
+        print(f"憑證解析時發生未知錯誤，但 JSON 內容可能正確。錯誤訊息：{e}")
         raise ValueError(f"憑證解析時發生未知錯誤：{e}")
 
 try:
