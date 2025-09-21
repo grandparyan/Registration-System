@@ -46,8 +46,12 @@ def get_worksheet():
 def index():
     """顯示主頁面，包含報修表單和所有報修紀錄。"""
     try:
-        worksheet = get_worksheet()
-        records = worksheet.get_all_records()
+        worksheet_result = get_worksheet()
+        # 檢查回傳值是否為 tuple (代表錯誤)
+        if isinstance(worksheet_result, tuple):
+            return worksheet_result
+        
+        records = worksheet_result.get_all_records()
         return render_template('index.html', records=records)
     except Exception as e:
         return f"讀取資料時發生錯誤：{e}", 500
@@ -56,7 +60,10 @@ def index():
 def submit_request():
     """處理表單提交，將新紀錄寫入 Google 試算表。"""
     try:
-        worksheet = get_worksheet()
+        worksheet_result = get_worksheet()
+        if isinstance(worksheet_result, tuple):
+            return worksheet_result
+            
         reporter_name = request.form['reporter_name']
         location = request.form['location']
         problem_description = request.form['problem_description']
@@ -66,7 +73,7 @@ def submit_request():
         request_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         # 新增一列資料
-        worksheet.append_row([reporter_name, location, problem_description, teacher, request_time])
+        worksheet_result.append_row([reporter_name, location, problem_description, teacher, request_time])
         
         return redirect(url_for('index'))
     except Exception as e:
@@ -80,7 +87,10 @@ def edit_request(row_index):
     - POST 請求：更新試算表中的資料。
     """
     try:
-        worksheet = get_worksheet()
+        worksheet_result = get_worksheet()
+        if isinstance(worksheet_result, tuple):
+            return worksheet_result
+            
         # 因為 get_all_records() 不包含標題列，所以實際列號要 +2 (標題列 + 0-based index)
         sheet_row_index = row_index + 1
         
@@ -95,11 +105,11 @@ def edit_request(row_index):
             ]
             
             # 更新試算表中的該列資料
-            worksheet.update(f'A{sheet_row_index}:E{sheet_row_index}', [updated_data])
+            worksheet_result.update(f'A{sheet_row_index}:E{sheet_row_index}', [updated_data])
             return redirect(url_for('index'))
         else:
             # 取得該列資料，用來填入編輯表單
-            record = worksheet.row_values(sheet_row_index)
+            record = worksheet_result.row_values(sheet_row_index)
             # 檢查是否讀取到資料
             if not record:
                  return "找不到該筆報修紀錄！", 404
@@ -113,10 +123,13 @@ def edit_request(row_index):
 def delete_request(row_index):
     """處理刪除請求，從試算表中刪除指定的列。"""
     try:
-        worksheet = get_worksheet()
+        worksheet_result = get_worksheet()
+        if isinstance(worksheet_result, tuple):
+            return worksheet_result
+            
         # 因為 get_all_records() 不包含標題列，所以實際列號要 +2 (標題列 + 0-based index)
         sheet_row_index = row_index + 1
-        worksheet.delete_rows(sheet_row_index)
+        worksheet_result.delete_rows(sheet_row_index)
         return redirect(url_for('index'))
     except Exception as e:
         return f"刪除資料時發生錯誤：{e}", 500
