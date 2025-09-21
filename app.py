@@ -6,46 +6,57 @@
 
 from flask import Flask, render_template, request, redirect, url_for
 import gspread
+import json
 import os
 from datetime import datetime
 
-# 檢查 credentials.json 檔案是否存在
-if not os.path.exists('credentials.json'):
-    print("錯誤：找不到 'credentials.json' 檔案。")
-    print("請依照 README.md 說明，從 Google Cloud Console 下載服務帳號金鑰檔案，並重新命名為 'credentials.json'。")
-    exit()
-
-# 啟用 Google 試算表 API
-try:
-    gc = gspread.service_account(filename='credentials.json')
-    # 請將下方 '你的試算表名稱' 換成您自己的 Google 試算表名稱
-    spreadsheet_name = "設備報修紀錄"
-    sh = gc.open(spreadsheet_name)
-    worksheet = sh.sheet1
-except Exception as e:
-    print(f"連線到 Google 試算表時發生錯誤：{e}")
-    print("請確認以下事項：")
-    print("- 您的 'credentials.json' 檔案是否正確。")
-    print("- Google Sheets API 是否已在您的 Google Cloud 專案中啟用。")
-    print("- 您是否已將試算表分享給服務帳號的電子郵件地址。")
-    exit()
-
+# 初始化 Flask 應用程式
 app = Flask(__name__, template_folder='templates')
+
+def get_worksheet():
+    """連線到 Google 試算表並返回工作表物件。"""
+    try:
+        # 嘗試從 Render 環境變數讀取憑證內容
+        credentials_json = os.environ.get('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS')
+        if credentials_json:
+            # 從環境變數中的 JSON 字串建立憑證
+            credentials = json.loads(credentials_json)
+            gc = gspread.service_account_from_dict(credentials)
+        else:
+            # 如果在 Render 上找不到，則嘗試從本地檔案讀取 (用於本地開發)
+            if os.path.exists('credentials.json'):
+                gc = gspread.service_account(filename='credentials.json')
+            else:
+                # 如果兩者都找不到，則拋出錯誤
+                raise FileNotFoundError("錯誤：找不到 'credentials.json' 檔案或 'GOOGLE_SERVICE_ACCOUNT_CREDENTIALS' 環境變數。請依照 README.md 說明進行設定。")
+
+        # 讀取試算表名稱，優先使用環境變數
+        spreadsheet_name = os.environ.get('GOOGLE_SHEET_NAME', '設備報修紀錄')
+        
+        # 開啟試算表並選擇第一個工作表
+        sh = gc.open(spreadsheet_name)
+        return sh.sheet1
+    except Exception as e:
+        # 在部署時，如果發生錯誤，印出詳細資訊方便除錯
+        print(f"連線到 Google 試算表時發生錯誤：{e}")
+        # 在網頁上顯示錯誤訊息
+        return f"讀取資料時發生錯誤：{e}", 500
 
 @app.route('/')
 def index():
     """顯示主頁面，包含報修表單和所有報修紀錄。"""
     try:
-        # 讀取所有報修紀錄
+        worksheet = get_worksheet()
         records = worksheet.get_all_records()
         return render_template('index.html', records=records)
     except Exception as e:
-        return f"讀取資料時發生錯誤：{e}"
+        return f"讀取資料時發生錯誤：{e}", 500
 
 @app.route('/submit_request', methods=['POST'])
 def submit_request():
     """處理表單提交，將新紀錄寫入 Google 試算表。"""
     try:
+        worksheet = get_worksheet()
         reporter_name = request.form['reporter_name']
         location = request.form['location']
         problem_description = request.form['problem_description']
@@ -59,7 +70,7 @@ def submit_request():
         
         return redirect(url_for('index'))
     except Exception as e:
-        return f"提交資料時發生錯誤：{e}"
+        return f"提交資料時發生錯誤：{e}", 500
 
 @app.route('/edit/<int:row_index>', methods=['GET', 'POST'])
 def edit_request(row_index):
@@ -69,6 +80,7 @@ def edit_request(row_index):
     - POST 請求：更新試算表中的資料。
     """
     try:
+        worksheet = get_worksheet()
         # 因為 get_all_records() 不包含標題列，所以實際列號要 +2 (標題列 + 0-based index)
         sheet_row_index = row_index + 1
         
@@ -95,18 +107,21 @@ def edit_request(row_index):
             return render_template('edit.html', record=record, row_index=row_index)
 
     except Exception as e:
-        return f"處理編輯請求時發生錯誤：{e}"
+        return f"處理編輯請求時發生錯誤：{e}", 500
 
 @app.route('/delete/<int:row_index>')
 def delete_request(row_index):
     """處理刪除請求，從試算表中刪除指定的列。"""
     try:
+        worksheet = get_worksheet()
         # 因為 get_all_records() 不包含標題列，所以實際列號要 +2 (標題列 + 0-based index)
         sheet_row_index = row_index + 1
         worksheet.delete_rows(sheet_row_index)
         return redirect(url_for('index'))
     except Exception as e:
-        return f"刪除資料時發生錯誤：{e}"
+        return f"刪除資料時發生錯誤：{e}", 500
 
 if __name__ == '__main__':
+    # 這裡的程式碼只在本地執行時會被呼叫
+    # 在 Render 上會由 gunicorn 伺服器啟動
     app.run(debug=True)
