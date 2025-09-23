@@ -1,13 +1,15 @@
 import os
 import json
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, render_template_string, request, redirect, url_for, jsonify
 from gspread import service_account
 from json.decoder import JSONDecodeError
+from datetime import datetime
 
 app = Flask(__name__)
 
 # 使用 os.environ 讀取環境變數，確保程式碼可以在 Render 上運作
 GOOGLE_SERVICE_ACCOUNT_CREDENTIALS = os.environ.get('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS')
+SPREADSHEET_NAME = "設備報修"  # 替換成你的 Google 試算表名稱
 
 def get_service_account_credentials():
     """安全地解析 JSON 憑證字串並返回憑證對象。"""
@@ -29,7 +31,6 @@ def get_service_account_credentials():
 try:
     creds_info = get_service_account_credentials()
     gc = service_account(json_info=creds_info)
-    SPREADSHEET_NAME = "設備報修"  # 替換成你的 Google 試算表名稱
     spreadsheet = gc.open(SPREADSHEET_NAME)
     worksheet = spreadsheet.get_worksheet(0)  # 取得第一個工作表
     print("成功連線到 Google 試算表！")
@@ -40,40 +41,50 @@ except Exception as e:
 @app.route('/')
 def home():
     """顯示報修表單網頁。"""
-    # 讀取 index.html 檔案內容並回傳
+    records = []
+    if worksheet:
+        try:
+            records = worksheet.get_all_records()
+        except Exception as e:
+            print(f"讀取試算表資料時發生錯誤: {e}")
+            
+    # 讀取 index.html 檔案內容並使用 Jinja2 傳遞資料
     with open('index.html', 'r', encoding='utf-8') as f:
         html_content = f.read()
-    return render_template_string(html_content)
+    return render_template_string(html_content, records=records)
 
-@app.route('/submit_repair', methods=['POST'])
-def submit_repair():
+@app.route('/submit_request', methods=['POST'])
+def submit_request():
     """接收表單資料並寫入 Google 試算表。"""
     if worksheet is None:
         return jsonify({'success': False, 'message': '後端連線到試算表失敗。'})
 
     try:
-        data = request.json
-        if not data:
-            return jsonify({'success': False, 'message': '沒有收到表單資料。'})
-
         # 取得表單欄位的值
-        reporter_name = data.get('reporter_name')
-        location = data.get('location')
-        problem_description = data.get('problem_description')
-        teacher = data.get('teacher')
-        
+        reporter_name = request.form.get('reporter_name')
+        location = request.form.get('location')
+        problem_description = request.form.get('problem_description')
+        teacher = request.form.get('teacher')
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         # 建立一個新的資料列，順序需與 Google 試算表欄位順序一致
-        new_row = [reporter_name, location, problem_description, teacher]
+        new_row = [reporter_name, location, problem_description, teacher, timestamp]
         
         # 將資料附加到工作表的最後一行
         worksheet.append_row(new_row)
         
         print(f"成功將資料寫入試算表：{new_row}")
-        return jsonify({'success': True, 'message': '報修申請已提交成功！'})
+        # 提交成功後，重新導向回首頁以顯示更新後的清單
+        return redirect(url_for('home'))
 
     except Exception as e:
         print(f"寫入試算表時發生錯誤：{e}")
-        return jsonify({'success': False, 'message': f'提交失敗，請再試一次。錯誤：{e}'})
+        # 如果失敗，返回一個錯誤頁面或訊息
+        return f"提交失敗，請再試一次。錯誤：{e}"
+
+# 注意：你提供的 HTML 中使用了 confirm() 函式，這在部分瀏覽器或環境下可能會有問題。
+# 在 Canvas 預覽中，這類彈出視窗不會顯示，建議改用自訂的模態視窗來提供更好的使用者體驗。
+# 此外，'edit_request' 和 'delete_request' 路由尚未實作，如果你需要這些功能，我們可以再討論如何添加。
 
 if __name__ == '__main__':
     # 為了方便本地測試，設定 host 為 '0.0.0.0'
