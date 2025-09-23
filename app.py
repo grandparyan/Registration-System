@@ -9,7 +9,8 @@ app = Flask(__name__)
 
 # 使用 os.environ 讀取環境變數，確保程式碼可以在 Render 上運作
 GOOGLE_SERVICE_ACCOUNT_CREDENTIALS = os.environ.get('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS')
-SPREADSHEET_NAME = "設備報修"  # 替換成你的 Google 試算表名稱
+# 從環境變數讀取試算表名稱，若無則使用預設值
+SPREADSHEET_NAME = os.environ.get('GOOGLE_SHEET_NAME', '設備報修')
 
 def get_service_account_credentials():
     """安全地解析 JSON 憑證字串並返回憑證對象。"""
@@ -44,7 +45,18 @@ def home():
     records = []
     if worksheet:
         try:
-            records = worksheet.get_all_records()
+            # 取得標題列
+            headers = worksheet.row_values(1)
+            # 取得所有資料列
+            all_values = worksheet.get_all_values()
+            
+            # 從第二列開始讀取資料並轉換為字典列表
+            if len(all_values) > 1:
+                data_rows = all_values[1:]
+                for row in data_rows:
+                    record = dict(zip(headers, row))
+                    records.append(record)
+
         except Exception as e:
             print(f"讀取試算表資料時發生錯誤: {e}")
             
