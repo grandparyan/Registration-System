@@ -31,7 +31,13 @@ def get_service_account_credentials():
 # 初始化 Google 憑證
 try:
     creds_info = get_service_account_credentials()
-    gc = service_account(credentials=creds_info)
+    try:
+        # 嘗試使用新版 gspread 的參數
+        gc = service_account(credentials=creds_info)
+    except TypeError:
+        # 如果失敗，改用舊版 gspread 的參數
+        gc = service_account(json_info=creds_info)
+    
     spreadsheet = gc.open(SPREADSHEET_NAME)
     worksheet = spreadsheet.get_worksheet(0)  # 取得第一個工作表
     print("成功連線到 Google 試算表！")
