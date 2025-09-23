@@ -57,12 +57,13 @@ def submit_repair():
             return jsonify({'success': False, 'message': '沒有收到表單資料。'})
 
         # 取得表單欄位的值
-        device = data.get('device')
-        requester = data.get('requester')
-        description = data.get('description')
+        reporter_name = data.get('reporter_name')
+        location = data.get('location')
+        problem_description = data.get('problem_description')
+        teacher = data.get('teacher')
         
-        # 建立一個新的資料列
-        new_row = [device, requester, description]
+        # 建立一個新的資料列，順序需與 Google 試算表欄位順序一致
+        new_row = [reporter_name, location, problem_description, teacher]
         
         # 將資料附加到工作表的最後一行
         worksheet.append_row(new_row)
