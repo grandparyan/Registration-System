@@ -3,5 +3,5 @@ services:
     name: 設備報修表單
     env: python
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "flask run" # 修改為 flask run
+    startCommand: "flask --app main run" # 修正為此行
     autoDeploy: false
