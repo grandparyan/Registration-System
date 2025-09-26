@@ -2,6 +2,6 @@ services:
   - type: web
     name: 設備報修表單
     env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "flask --app main run" # 修正為此行
+    buildCommand: "" # 清除建置指令
+    startCommand: "pip install -r requirements.txt && flask --app main run" # 合併指令
     autoDeploy: false
