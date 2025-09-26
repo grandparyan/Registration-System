@@ -2,6 +2,6 @@ services:
   - type: web
     name: 設備報修表單
     env: python
-    buildCommand: "" # 清除建置指令
-    startCommand: "pip install -r requirements.txt && flask --app main run" # 合併指令
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
     autoDeploy: false
