@@ -1,56 +1,77 @@
 import os
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime
-from fastapi import FastAPI, Request, Form
+import json
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-# 載入 Jinja2 模板引擎來渲染 HTML
-templates = Jinja2Templates(directory=".")
-
-# 初始化 FastAPI 應用程式
 app = FastAPI()
 
-# 設定 Google Sheets API
-scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds = ServiceAccountCredentials.from_json_keyfile_dict(
-    os.environ.get('SERVICE_ACCOUNT_CREDENTIALS'),
-    scope
-)
-client = gspread.authorize(creds)
+# 模板設定
+templates = Jinja2Templates(directory=".")
 
-# 指定試算表
-spreadsheet_id = os.environ.get('SPREADSHEET_ID', '1IHyA7aRxGJekm31KIbuORpg4-dVY8XTOEbU6p8vK3y4')
-sheet = client.open_by_key(spreadsheet_id).get_worksheet(0) # 取得第一個工作表，您可以根據名稱修改為 get_worksheet_by_title('設備報修')
+# Google Sheets API 範圍
+scope = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive",
+]
 
-# 主頁面路由
+# 從環境變數中讀取服務帳號憑證並解析為 JSON
+try:
+    creds_json = os.environ.get('SERVICE_ACCOUNT_CREDENTIALS')
+    if creds_json:
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(
+            json.loads(creds_json),
+            scope
+        )
+        client = gspread.authorize(creds)
+    else:
+        print("錯誤：找不到 SERVICE_ACCOUNT_CREDENTIALS 環境變數。")
+        client = None # 避免後續程式碼因 client 為 None 而崩潰
+except json.JSONDecodeError:
+    print("錯誤：無法解析 SERVICE_ACCOUNT_CREDENTIALS 環境變數為 JSON。請檢查其格式。")
+    client = None
+
+# 如果 client 成功建立，則打開試算表
+if client:
+    sheet = client.open("設備報修表單").worksheet("設備報修")
+else:
+    sheet = None
+
+# 定義根路徑，提供 HTML 頁面
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
+async def read_root(request: Request):
+    # 這裡可以根據需要從 Google Sheets 讀取資料
+    # 例如：data = sheet.get_all_records()
+    # 然後傳遞給模板
     return templates.TemplateResponse("index.html", {"request": request})
 
-# 處理表單提交的路由
-@app.post("/submit")
-async def process_form(
-    reporterName: str = Form(...),
-    deviceLocation: str = Form(...),
-    problemDescription: str = Form(...),
-    helperTeacher: str = Form(...)
-):
+# 定義一個 API 端點來處理表單提交
+@app.post("/submit", response_class=HTMLResponse)
+async def submit_form(request: Request):
+    if not sheet:
+        return {"status": "error", "message": "無法連線至 Google Sheets。"}
+    
     try:
-        data = [
-            str(datetime.now()), 
-            reporterName, 
-            deviceLocation, 
-            problemDescription, 
-            helperTeacher, 
-            '待處理'
+        data = await request.json()
+        
+        reporterName = data.get('reporterName')
+        deviceLocation = data.get('deviceLocation')
+        problemDescription = data.get('problemDescription')
+        helperTeacher = data.get('helperTeacher')
+        
+        # 獲取當前時間並寫入試算表
+        row = [
+            str(reporterName),
+            str(deviceLocation),
+            str(problemDescription),
+            str(helperTeacher),
+            "待處理"
         ]
-        sheet.append_row(data)
+        
+        sheet.append_row(row)
+        
         return {"status": "success", "message": "報修已送出！"}
     except Exception as e:
-        return {"status": "error", "message": f"送出失敗，請重試。錯誤訊息：{str(e)}"}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+        return {"status": "error", "message": f"提交失敗：{str(e)}"}
