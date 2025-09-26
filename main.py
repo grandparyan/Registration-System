@@ -1,5 +1,6 @@
 import os
 import datetime
+import json
 from flask import Flask, render_template, request, jsonify
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
@@ -8,15 +9,14 @@ from googleapiclient.discovery import build
 app = Flask(__name__)
 
 # --- Google Sheets API 設定 ---
-# 請將您的服務帳號 JSON 檔案放在與 main.py 相同的資料夾中，並命名為 'credentials.json'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-SERVICE_ACCOUNT_FILE = 'credentials.json'
+SERVICE_ACCOUNT_INFO = json.loads(os.getenv("SERVICE_ACCOUNT_CREDENTIALS"))
 
 def get_sheets_service():
     """建立並回傳 Google Sheets API 服務物件。"""
     try:
-        creds = Credentials.from_service_account_file(
-            SERVICE_ACCOUNT_FILE, scopes=SCOPES
+        creds = Credentials.from_service_account_info(
+            SERVICE_ACCOUNT_INFO, scopes=SCOPES
         )
         return build('sheets', 'v4', credentials=creds)
     except Exception as e:
@@ -78,4 +78,5 @@ def submit_form():
 
 if __name__ == '__main__':
     # 在本機執行 Web 伺服器
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
