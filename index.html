@@ -1,131 +1,85 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <base target="_top">
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>設備報修表單</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        background-color: #f4f4f4;
-        margin: 0;
-        padding: 20px;
-      }
-      .container {
-        max-width: 600px;
-        margin: auto;
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-      }
-      h2 {
-        text-align: center;
-        color: #333;
-      }
-      .form-group {
-        margin-bottom: 15px;
-      }
-      label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-      }
-      input[type="text"], textarea {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        box-sizing: border-box; /* 確保 padding 不會增加寬度 */
-      }
-      button {
-        display: block;
-        width: 100%;
-        padding: 10px;
-        background-color: #5cb85c;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        font-size: 16px;
-        cursor: pointer;
-      }
-      button:hover {
-        background-color: #4cae4c;
-      }
-      #response {
-        margin-top: 20px;
-        text-align: center;
-        font-weight: bold;
-      }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
     </style>
-  </head>
-  <body>
-    <div class="container">
-      <h2>設備報修表單</h2>
-      <form id="repairForm">
-        <div class="form-group">
-          <label for="reporterName">報修者姓名：</label>
-          <input type="text" id="reporterName" name="reporterName" required>
-        </div>
-        <div class="form-group">
-          <label for="deviceLocation">設備位置：</label>
-          <input type="text" id="deviceLocation" name="deviceLocation" required>
-        </div>
-        <div class="form-group">
-          <label for="problemDescription">設備問題描述：</label>
-          <textarea id="problemDescription" name="problemDescription" rows="4" required></textarea>
-        </div>
-        <div class="form-group">
-          <label for="helperTeacher">協助老師：</label>
-          <input type="text" id="helperTeacher" name="helperTeacher" required>
-        </div>
-        <button type="submit">送出報修</button>
-      </form>
-      <div id="response"></div>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-8 rounded-lg shadow-lg max-w-lg w-full">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">設備報修表單</h1>
+        <form id="repairForm" class="space-y-4">
+            <div>
+                <label for="reporterName" class="block text-sm font-medium text-gray-700">報修者姓名</label>
+                <input type="text" id="reporterName" name="reporterName" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div>
+                <label for="deviceLocation" class="block text-sm font-medium text-gray-700">設備位置</label>
+                <input type="text" id="deviceLocation" name="deviceLocation" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div>
+                <label for="problemDescription" class="block text-sm font-medium text-gray-700">問題描述</label>
+                <textarea id="problemDescription" name="problemDescription" rows="4" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+            </div>
+            <div>
+                <label for="helperTeacher" class="block text-sm font-medium text-gray-700">協助老師</label>
+                <input type="text" id="helperTeacher" name="helperTeacher" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200">
+                送出報修
+            </button>
+        </form>
+        <div id="statusMessage" class="mt-4 text-center text-sm font-medium" role="alert"></div>
     </div>
 
     <script>
-      document.getElementById('repairForm').addEventListener('submit', function(event) {
-        event.preventDefault();
+        const form = document.getElementById('repairForm');
+        const statusMessage = document.getElementById('statusMessage');
 
-        const form = event.target;
-        const formData = {
-          reporterName: form.reporterName.value,
-          deviceLocation: form.deviceLocation.value,
-          problemDescription: form.problemDescription.value,
-          helperTeacher: form.helperTeacher.value
-        };
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // 清空舊訊息
+            statusMessage.textContent = '';
+            statusMessage.classList.remove('text-green-600', 'text-red-600');
 
-        const responseDiv = document.getElementById('response');
-        responseDiv.textContent = '提交中...';
-        responseDiv.style.color = 'blue';
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
 
-        // 使用 fetch API 傳送資料到 Python 後端
-        fetch('/submit', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData)
-        })
-        .then(response => {
-          // 檢查回傳狀態碼
-          if (!response.ok) {
-            return response.json().then(data => {
-              throw new Error(data.message || '伺服器錯誤');
-            });
-          }
-          return response.json();
-        })
-        .then(data => {
-          responseDiv.textContent = data.message;
-          responseDiv.style.color = 'green';
-          form.reset(); // 清空表單
-        })
-        .catch(error => {
-          responseDiv.textContent = '送出失敗，請重試。錯誤訊息：' + error.message;
-          responseDiv.style.color = 'red';
+            try {
+                const response = await fetch('/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || '提交失敗，請重試。');
+                }
+
+                const result = await response.json();
+                
+                statusMessage.textContent = result.message;
+                statusMessage.classList.add('text-green-600');
+                form.reset(); // 成功後重設表單
+
+            } catch (error) {
+                statusMessage.textContent = `送出失敗，請重試。錯誤訊息：${error.message}`;
+                statusMessage.classList.add('text-red-600');
+                console.error('Submission error:', error);
+            }
         });
-      });
     </script>
-  </body>
+</body>
 </html>
