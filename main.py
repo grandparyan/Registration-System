@@ -38,12 +38,12 @@ except json.JSONDecodeError as e:
 sheet = None
 if client:
     try:
-        sheet = client.open("設備報修表單").worksheet("設備報修")
+        sheet = client.open("設備報修").worksheet("設備報修")
         print("成功連線到 Google Sheets。")
     except gspread.exceptions.WorksheetNotFound:
         print("錯誤：找不到名稱為「設備報修」的工作表。")
     except gspread.exceptions.SpreadsheetNotFound:
-        print("錯誤：找不到名稱為「設備報修表單」的試算表。")
+        print("錯誤：找不到名稱為「設備報修」的試算表。")
     except Exception as e:
         print(f"連線到 Google Sheets 時發生未知錯誤: {e}")
 
