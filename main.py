@@ -83,7 +83,7 @@ def home():
     """
     回傳完整的 HTML 報修表單內容，作為服務的前端。
     """
-    # 將您的 repair_form.html 內容作為字串回傳
+    # HTML 內容已在上次更新中移除協辦老師欄位，此處保持不變
     html_content = """
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -138,10 +138,7 @@ def home():
                 <label for="problem_input" class="block text-sm font-medium text-gray-700 mb-1">問題詳細描述 (必填)</label>
                 <textarea id="problem_input" rows="4" required class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 resize-none"></textarea>
             </div>
-
-            <!-- 協辦老師 (helperTeacher) 欄位已移除 -->
-            <!-- 舊的協辦老師選擇欄位已被移除 -->
-
+            
             <!-- 提交按鈕 -->
             <div>
                 <button type="submit" id="submit-button" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
@@ -187,8 +184,7 @@ def home():
             submitButton.classList.add('opacity-50', 'cursor-not-allowed');
 
             try {
-                // 1. 從表單中收集資料，確保 Key Names 與 Python 後端完全匹配
-                // 注意：helperTeacher 欄位已移除
+                // 1. 從表單中收集資料，只收集目前表單上存在的三個欄位
                 const reportData = {
                     "reporterName": document.getElementById('reporter_name_input').value,
                     "deviceLocation": document.getElementById('location_input').value,
@@ -256,13 +252,12 @@ def submit_data_api():
         return jsonify({"status": "error", "message": "請求資料為空。"}), 400
     
     try:
-        # 從 JSON 資料中提取欄位，確保 Key Name 大小寫正確！
+        # 從 JSON 資料中提取欄位
         reporterName = data.get('reporterName', 'N/A')
         deviceLocation = data.get('deviceLocation', 'N/A')
         problemDescription = data.get('problemDescription', 'N/A')
         
-        # 移除協辦老師欄位，將其值設為固定標記，以保持 Google Sheets 的欄位數一致性
-        teacher_placeholder = "欄位已移除" 
+        # *** 這裡完全移除協辦老師的欄位及其佔位符 ***
 
         if not all([reporterName != 'N/A', deviceLocation != 'N/A', problemDescription != 'N/A']):
             logging.error(f"缺少必要資料: {data}")
@@ -274,13 +269,13 @@ def submit_data_api():
         taiwan_time = utc_now + datetime.timedelta(hours=8)
         timestamp = taiwan_time.strftime("%Y-%m-%d %H:%M:%S")
 
+        # row 陣列中只包含 5 個元素：時間戳記、姓名、位置、描述、狀態
         row = [
             timestamp, 
             str(reporterName),
             str(deviceLocation),
             str(problemDescription),
-            str(teacher_placeholder), # 使用佔位符號代替已移除的協辦老師欄位
-            "待處理" 
+            "待處理" # 這現在是第 5 個欄位 (在 Sheets 上會對應到原本第 5 或第 6 欄)
         ]
         
         # 將資料附加到工作表的最後一行
