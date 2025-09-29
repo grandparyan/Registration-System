@@ -275,8 +275,11 @@ def submit_data_api():
             logging.error(f"缺少必要資料: {data}")
             return jsonify({"status": "error", "message": "缺少必要的報修資料（如報修人、地點或描述）。"}), 400
 
-        # 加入當前時間欄位
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # 獲取當前的 UTC 時間
+        utc_now = datetime.datetime.utcnow()
+        # 加上 8 小時的偏移量 (台灣時區)
+        taiwan_time = utc_now + datetime.timedelta(hours=8)
+        timestamp = taiwan_time.strftime("%Y-%m-%d %H:%M:%S")
 
         row = [
             timestamp, 
