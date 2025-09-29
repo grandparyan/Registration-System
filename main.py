@@ -69,7 +69,7 @@ with app.app_context():
     initialize_gspread()
 
 # 定義接收網頁資料的 API 端點
-@app.route('/submit_report', methods=['POST'])
+@app.route('/submit', methods=['POST'])
 def submit_data_api():
     """
     接收來自網頁的 POST 請求，將 JSON 資料寫入 Google Sheets。
