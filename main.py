@@ -3,17 +3,18 @@ import json
 import gspread
 import logging
 import datetime
-from flask import Flask, request, jsonify
-from flask_cors import CORS # 啟用 CORS 讓網頁可以跨域呼叫
+from flask import Flask, request, jsonify, Response
+from flask_cors import CORS 
 from oauth2client.service_account import ServiceAccountCredentials
 
 # 設定日誌等級，方便在 Render 上除錯
 logging.basicConfig(level=logging.INFO)
+
 # ----------------------------------------------------
-# 這是您的 Google Sheets 試算表 ID
+# 設定 Google Sheets 參數
 # 請確保您的服務帳號有此試算表的「編輯者」權限
 spreadsheet_id = "1IHyA7aRxGJekm31KIbuORpg4-dVY8XTOEbU6p8vK3y4"
-WORKSHEET_NAME = "設備報修" # 這是您的程式碼不斷報錯的地方，請檢查是否完全匹配
+WORKSHEET_NAME = "設備報修" # 請再次檢查此名稱是否與您的 Google Sheets 工作表名稱完全匹配
 
 # Google Sheets API 範圍
 scope = [
@@ -26,11 +27,12 @@ client = None
 sheet = None
 
 def initialize_gspread():
-    """初始化 Google Sheets 連線，確保服務啟動時只執行一次。"""
+    """初始化 Google Sheets 連線。"""
     global client, sheet
     
+    # 避免重複初始化
     if client:
-        return True # 已初始化
+        return True 
 
     try:
         creds_json = os.environ.get('SERVICE_ACCOUNT_CREDENTIALS')
@@ -52,7 +54,6 @@ def initialize_gspread():
         return True
 
     except gspread.exceptions.WorksheetNotFound:
-        # 這是您目前遇到的錯誤，請再次檢查 Sheets 上的名稱是否完全是「設備報修」
         logging.error(f"嚴重錯誤：找不到名稱為「{WORKSHEET_NAME}」的工作表。請檢查名稱或試算表 ID。")
         return False
     except gspread.exceptions.SpreadsheetNotFound:
@@ -70,20 +71,189 @@ CORS(app)
 
 # 在應用程式第一次請求前先初始化 gspread
 with app.app_context():
+    # 確保應用程式啟動時就嘗試連線
     initialize_gspread()
 
-# 定義接收網頁資料的 API 端點
-# 注意：前端的請求路徑必須是 /submit_report
+# ----------------------------------------------------
+# 路由定義
+
+# 1. 根路由：用於顯示 HTML 報修表單
+@app.route('/')
+def home():
+    """
+    回傳完整的 HTML 報修表單內容，作為服務的前端。
+    """
+    # 將您的 repair_form.html 內容作為字串回傳
+    html_content = """
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>設備報修系統</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 使用 Inter 字體以確保跨平台一致性 */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7f9;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-lg bg-white p-8 md:p-10 rounded-xl shadow-2xl">
+        
+        <!-- 標題區塊 -->
+        <div class="text-center mb-8">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-indigo-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <h1 class="text-3xl font-bold text-gray-900">設備報修單</h1>
+            <p class="text-gray-500 mt-1">請填寫詳細資訊，以便我們快速處理。</p>
+        </div>
+
+        <!-- 訊息顯示區塊 (取代 alert) -->
+        <div id="message-box" class="hidden mb-6 p-3 text-center rounded-lg font-medium transition-all duration-300"></div>
+
+        <!-- 表單開始 -->
+        <form id="repairForm" class="space-y-6">
+            
+            <!-- 報修人姓名 (reporterName) -->
+            <div>
+                <label for="reporter_name_input" class="block text-sm font-medium text-gray-700 mb-1">報修人姓名 (必填)</label>
+                <input type="text" id="reporter_name_input" required class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+
+            <!-- 設備位置 (deviceLocation) -->
+            <div>
+                <label for="location_input" class="block text-sm font-medium text-gray-700 mb-1">設備位置 / 教室名稱 (必填)</label>
+                <input type="text" id="location_input" required class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+
+            <!-- 問題描述 (problemDescription) -->
+            <div>
+                <label for="problem_input" class="block text-sm font-medium text-gray-700 mb-1">問題詳細描述 (必填)</label>
+                <textarea id="problem_input" rows="4" required class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 resize-none"></textarea>
+            </div>
+
+            <!-- 協辦老師 (helperTeacher) -->
+            <div>
+                <label for="teacher_select" class="block text-sm font-medium text-gray-700 mb-1">協辦老師 (選填)</label>
+                <select id="teacher_select" class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                    <option value="無指定">-- 請選擇協辦老師 (無指定) --</option>
+                    <option value="李老師">李老師</option>
+                    <option value="王老師">王老師</option>
+                    <option value="陳老師">陳老師</option>
+                </select>
+            </div>
+
+            <!-- 提交按鈕 -->
+            <div>
+                <button type="submit" id="submit-button" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
+                    送出報修單
+                </button>
+            </div>
+        </form>
+        <!-- 表單結束 -->
+    </div>
+
+    <script>
+        // 設定您的 Render API 網址，這是最關鍵的連接點
+        // 請確保您的 Render 服務已成功啟動並連線到 Sheets！
+        const API_URL = "https://registration-system-ru2g.onrender.com/submit_report";
+
+        const form = document.getElementById('repairForm');
+        const submitButton = document.getElementById('submit-button');
+        const messageBox = document.getElementById('message-box');
+
+        // 顯示訊息函式（取代 alert）
+        function showMessage(message, isSuccess) {
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800');
+            
+            if (isSuccess) {
+                messageBox.classList.add('bg-green-100', 'text-green-800');
+            } else {
+                messageBox.classList.add('bg-red-100', 'text-red-800');
+            }
+            // 5 秒後隱藏訊息
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 5000);
+        }
+
+        form.addEventListener('submit', async function(event) {
+            // 阻止表單的預設提交行為
+            event.preventDefault();
+
+            // 鎖定按鈕並顯示載入狀態
+            submitButton.disabled = true;
+            submitButton.textContent = '正在送出...';
+            submitButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+            try {
+                // 1. 從表單中收集資料，確保 Key Names 與 Python 後端完全匹配
+                const reportData = {
+                    "reporterName": document.getElementById('reporter_name_input').value,
+                    "deviceLocation": document.getElementById('location_input').value,
+                    "problemDescription": document.getElementById('problem_input').value,
+                    "helperTeacher": document.getElementById('teacher_select').value
+                };
+
+                // 2. 發送 POST 請求
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    // 告知伺服器我們正在傳送 JSON 格式的資料
+                    headers: {
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify(reportData) // 將 JavaScript 物件轉換為 JSON 字串
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // HTTP 狀態碼為 200-299，表示成功
+                    showMessage(result.message, true);
+                    // 清空表單
+                    form.reset(); 
+                } else {
+                    // HTTP 狀態碼為 4xx 或 5xx，表示 API 發生錯誤
+                    throw new Error(result.message || `API 錯誤：HTTP 狀態碼 ${response.status}`);
+                }
+
+            } catch (error) {
+                // 處理網路錯誤或 API 返回的錯誤訊息
+                console.error("提交失敗:", error);
+                // 顯示錯誤訊息
+                showMessage(`提交失敗: ${error.message}`, false);
+            } finally {
+                // 無論成功或失敗，都恢復按鈕狀態
+                submitButton.disabled = false;
+                submitButton.textContent = '送出報修單';
+                submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        });
+    </script>
+</body>
+</html>
+    """
+    return Response(html_content, mimetype='text/html')
+
+
+# 2. API 路由：用於接收表單提交的資料
 @app.route('/submit_report', methods=['POST'])
 def submit_data_api():
     """
     接收來自網頁的 POST 請求，將 JSON 資料寫入 Google Sheets。
     """
+    # 這裡的邏輯與您先前確認的保持一致
     if not sheet:
-        # 如果初始化失敗，回傳伺服器錯誤（通常是因為找不到工作表或權限不足）
         return jsonify({"status": "error", "message": "伺服器初始化失敗，無法連線至 Google Sheets。請檢查 log 訊息。"}), 500
 
-    # 嘗試取得 JSON 資料
     try:
         data = request.get_json()
     except Exception:
@@ -95,13 +265,12 @@ def submit_data_api():
         return jsonify({"status": "error", "message": "請求資料為空。"}), 400
     
     try:
-        # 從 JSON 資料中提取欄位
+        # 從 JSON 資料中提取欄位，確保 Key Name 大小寫正確！
         reporterName = data.get('reporterName', 'N/A')
         deviceLocation = data.get('deviceLocation', 'N/A')
         problemDescription = data.get('problemDescription', 'N/A')
         helperTeacher = data.get('helperTeacher', '無指定')
 
-        # 檢查關鍵欄位是否存在
         if not all([reporterName != 'N/A', deviceLocation != 'N/A', problemDescription != 'N/A']):
             logging.error(f"缺少必要資料: {data}")
             return jsonify({"status": "error", "message": "缺少必要的報修資料（如報修人、地點或描述）。"}), 400
@@ -129,15 +298,6 @@ def submit_data_api():
         return jsonify({"status": "error", "message": f"提交失敗：{str(e)}，可能是 Sheets API 限制或連線問題。"}), 500
 
 # ----------------------------------------------------
-# 預設首頁（可選，用於健康檢查或基本訊息）
-@app.route('/')
-def home():
-    return jsonify({
-        "status": "online",
-        "message": "報修 API 服務運行中。請使用 POST 請求到 /submit_report 提交資料。",
-        "sheets_status": "連線成功" if sheet else "連線失敗"
-    })
-
+# 本地測試運行
 if __name__ == '__main__':
-    # 僅供本地測試使用
     app.run(debug=True, host='0.0.0.0', port=os.environ.get('PORT', 5000))
