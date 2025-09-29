@@ -269,7 +269,7 @@ def submit_data_api():
         reporterName = data.get('reporterName', 'N/A')
         deviceLocation = data.get('deviceLocation', 'N/A')
         problemDescription = data.get('problemDescription', 'N/A')
-        # helperTeacher 現在會是正確的「詹老師」或「佘老師」
+        # helperTeacher 現在會是正確的選項名稱
         helperTeacher = data.get('helperTeacher', '無指定') 
 
         if not all([reporterName != 'N/A', deviceLocation != 'N/A', problemDescription != 'N/A']):
