@@ -139,16 +139,8 @@ def home():
                 <textarea id="problem_input" rows="4" required class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 resize-none"></textarea>
             </div>
 
-            <!-- 協辦老師 (helperTeacher) -->
-            <div>
-                <label for="teacher_select" class="block text-sm font-medium text-gray-700 mb-1">協辦老師 (選填)</label>
-                <select id="teacher_select" class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white">
-                    <option value="無指定">-- 請選擇協辦老師 (無指定) --</option>
-                    <option value="李老師">李老師</option>
-                    <option value="王老師">王老師</option>
-                    <option value="陳老師">陳老師</option>
-                </select>
-            </div>
+            <!-- 協辦老師 (helperTeacher) 欄位已移除 -->
+            <!-- 舊的協辦老師選擇欄位已被移除 -->
 
             <!-- 提交按鈕 -->
             <div>
@@ -196,11 +188,11 @@ def home():
 
             try {
                 // 1. 從表單中收集資料，確保 Key Names 與 Python 後端完全匹配
+                // 注意：helperTeacher 欄位已移除
                 const reportData = {
                     "reporterName": document.getElementById('reporter_name_input').value,
                     "deviceLocation": document.getElementById('location_input').value,
                     "problemDescription": document.getElementById('problem_input').value,
-                    "helperTeacher": document.getElementById('teacher_select').value
                 };
 
                 // 2. 發送 POST 請求
@@ -250,7 +242,6 @@ def submit_data_api():
     """
     接收來自網頁的 POST 請求，將 JSON 資料寫入 Google Sheets。
     """
-    # 這裡的邏輯與您先前確認的保持一致
     if not sheet:
         return jsonify({"status": "error", "message": "伺服器初始化失敗，無法連線至 Google Sheets。請檢查 log 訊息。"}), 500
 
@@ -269,8 +260,9 @@ def submit_data_api():
         reporterName = data.get('reporterName', 'N/A')
         deviceLocation = data.get('deviceLocation', 'N/A')
         problemDescription = data.get('problemDescription', 'N/A')
-        # helperTeacher 現在會是正確的選項名稱
-        helperTeacher = data.get('helperTeacher', '無指定') 
+        
+        # 移除協辦老師欄位，將其值設為固定標記，以保持 Google Sheets 的欄位數一致性
+        teacher_placeholder = "欄位已移除" 
 
         if not all([reporterName != 'N/A', deviceLocation != 'N/A', problemDescription != 'N/A']):
             logging.error(f"缺少必要資料: {data}")
@@ -287,7 +279,7 @@ def submit_data_api():
             str(reporterName),
             str(deviceLocation),
             str(problemDescription),
-            str(helperTeacher),
+            str(teacher_placeholder), # 使用佔位符號代替已移除的協辦老師欄位
             "待處理" 
         ]
         
