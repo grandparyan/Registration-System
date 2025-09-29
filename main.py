@@ -3,6 +3,7 @@ import json
 import gspread
 import logging
 from flask import Flask, request, jsonify
+from flask_cors import CORS # 新增：導入 CORS
 from oauth2client.service_account import ServiceAccountCredentials
 
 # 設定日誌等級，方便在 Render 上除錯
@@ -61,6 +62,7 @@ def initialize_gspread():
 
 # --- Flask 應用程式設定 ---
 app = Flask(__name__)
+CORS(app) # 新增：啟用 CORS，允許跨域請求
 
 # 在應用程式第一次請求前先初始化 gspread
 with app.app_context():
@@ -79,6 +81,8 @@ def submit_data_api():
     # 確保接收到的資料是 JSON 格式
     data = request.get_json()
     if not data:
+        # 如果 request.get_json() 失敗，表示前端沒有正確發送 JSON 格式
+        logging.error("請求資料不是有效的 JSON 格式或 Content-Type 設定錯誤。")
         return jsonify({"status": "error", "message": "請求必須是 JSON 格式。請檢查網頁前端的 Content-Type。"}), 400
     
     try:
