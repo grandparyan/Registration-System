@@ -2,14 +2,20 @@ import os
 import json
 import gspread
 import logging
+import datetime
 from flask import Flask, request, jsonify
-from flask_cors import CORS # 新增：導入 CORS
+from flask_cors import CORS # 啟用 CORS 讓網頁可以跨域呼叫
 from oauth2client.service_account import ServiceAccountCredentials
 
 # 設定日誌等級，方便在 Render 上除錯
 logging.basicConfig(level=logging.INFO)
+# ----------------------------------------------------
+# 這是您的 Google Sheets 試算表 ID
+# 請確保您的服務帳號有此試算表的「編輯者」權限
+spreadsheet_id = "1IHyA7aRxGJekm31KIbuORpg4-dVY8XTOEbU6p8vK3y4"
+WORKSHEET_NAME = "設備報修" # 這是您的程式碼不斷報錯的地方，請檢查是否完全匹配
 
-# --- Google Sheets 連線與初始化 ---
+# Google Sheets API 範圍
 scope = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive",
@@ -18,20 +24,18 @@ scope = [
 # 全域變數用於儲存 gspread client 和工作表
 client = None
 sheet = None
-spreadsheet_id = "1IHyA7aRxGJekm31KIbuORpg4-dVY8XTOEbU6p8vK3y4" # 您的試算表 ID
 
 def initialize_gspread():
     """初始化 Google Sheets 連線，確保服務啟動時只執行一次。"""
     global client, sheet
     
     if client:
-        # 如果已經初始化，則直接返回
-        return True
+        return True # 已初始化
 
     try:
         creds_json = os.environ.get('SERVICE_ACCOUNT_CREDENTIALS')
         if not creds_json:
-            logging.error("錯誤：找不到 SERVICE_ACCOUNT_CREDENTIALS 環境變數。")
+            logging.error("致命錯誤：找不到 SERVICE_ACCOUNT_CREDENTIALS 環境變數。")
             return False
 
         # 嘗試解析 JSON 憑證
@@ -42,71 +46,76 @@ def initialize_gspread():
         )
         client = gspread.authorize(creds)
         
-        # 打開試算表並選取工作表
-        sheet = client.open_by_key(spreadsheet_id).worksheet("設備報修")
-        logging.info("成功連線到 Google Sheets。")
+        # 嘗試打開試算表並選取工作表
+        sheet = client.open_by_key(spreadsheet_id).worksheet(WORKSHEET_NAME)
+        logging.info(f"成功連線到 Google Sheets。工作表名稱: {WORKSHEET_NAME}")
         return True
 
-    except json.JSONDecodeError as e:
-        logging.error(f"錯誤：無法解析 SERVICE_ACCOUNT_CREDENTIALS 環境變數為 JSON。詳細錯誤: {e}")
-        return False
     except gspread.exceptions.WorksheetNotFound:
-        logging.error("錯誤：找不到名稱為「設備報修」的工作表。")
+        # 這是您目前遇到的錯誤，請再次檢查 Sheets 上的名稱是否完全是「設備報修」
+        logging.error(f"嚴重錯誤：找不到名稱為「{WORKSHEET_NAME}」的工作表。請檢查名稱或試算表 ID。")
         return False
     except gspread.exceptions.SpreadsheetNotFound:
-        logging.error(f"錯誤：找不到試算表ID為「{spreadsheet_id}」的試算表。請檢查權限。")
+        logging.error(f"嚴重錯誤：找不到試算表ID為「{spreadsheet_id}」的試算表。請檢查 ID 或服務帳號權限。")
         return False
     except Exception as e:
         logging.error(f"連線到 Google Sheets 時發生未知錯誤: {e}")
         return False
 
-# --- Flask 應用程式設定 ---
+# ----------------------------------------------------
+# Flask 應用程式設定
 app = Flask(__name__)
-CORS(app) # 新增：啟用 CORS，允許跨域請求
+# 啟用 CORS，允許所有來源的網頁呼叫您的 API
+CORS(app) 
 
 # 在應用程式第一次請求前先初始化 gspread
 with app.app_context():
     initialize_gspread()
 
 # 定義接收網頁資料的 API 端點
-@app.route('/submit', methods=['POST'])
+# 注意：前端的請求路徑必須是 /submit_report
+@app.route('/submit_report', methods=['POST'])
 def submit_data_api():
     """
     接收來自網頁的 POST 請求，將 JSON 資料寫入 Google Sheets。
     """
     if not sheet:
-        # 如果初始化失敗，回傳伺服器錯誤
-        return jsonify({"status": "error", "message": "伺服器初始化失敗，無法連線至 Google Sheets。"}), 500
+        # 如果初始化失敗，回傳伺服器錯誤（通常是因為找不到工作表或權限不足）
+        return jsonify({"status": "error", "message": "伺服器初始化失敗，無法連線至 Google Sheets。請檢查 log 訊息。"}), 500
 
-    # 確保接收到的資料是 JSON 格式
-    data = request.get_json()
-    if not data:
-        # 如果 request.get_json() 失敗，表示前端沒有正確發送 JSON 格式
-        logging.error("請求資料不是有效的 JSON 格式或 Content-Type 設定錯誤。")
+    # 嘗試取得 JSON 資料
+    try:
+        data = request.get_json()
+    except Exception:
+        logging.error("請求資料解析失敗：不是有效的 JSON 格式。")
         return jsonify({"status": "error", "message": "請求必須是 JSON 格式。請檢查網頁前端的 Content-Type。"}), 400
+
+    if not data:
+        logging.error("請求資料為空。")
+        return jsonify({"status": "error", "message": "請求資料為空。"}), 400
     
     try:
         # 從 JSON 資料中提取欄位
-        reporterName = data.get('reporterName')
-        deviceLocation = data.get('deviceLocation')
-        problemDescription = data.get('problemDescription')
-        helperTeacher = data.get('helperTeacher')
+        reporterName = data.get('reporterName', 'N/A')
+        deviceLocation = data.get('deviceLocation', 'N/A')
+        problemDescription = data.get('problemDescription', 'N/A')
+        helperTeacher = data.get('helperTeacher', '無指定')
 
         # 檢查關鍵欄位是否存在
-        if not all([reporterName, deviceLocation, problemDescription]):
+        if not all([reporterName != 'N/A', deviceLocation != 'N/A', problemDescription != 'N/A']):
+            logging.error(f"缺少必要資料: {data}")
             return jsonify({"status": "error", "message": "缺少必要的報修資料（如報修人、地點或描述）。"}), 400
 
-        # 您可以加入當前時間欄位
-        import datetime
+        # 加入當前時間欄位
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         row = [
-            timestamp, # 第一個欄位，記錄時間
+            timestamp, 
             str(reporterName),
             str(deviceLocation),
             str(problemDescription),
-            str(helperTeacher or "無指定"), # 處理選填欄位
-            "待處理" # 預設狀態
+            str(helperTeacher),
+            "待處理" 
         ]
         
         # 將資料附加到工作表的最後一行
@@ -116,11 +125,19 @@ def submit_data_api():
         return jsonify({"status": "success", "message": "設備報修資料已成功送出！"}), 200
         
     except Exception as e:
-        logging.error(f"提交資料時發生錯誤: {e}")
-        return jsonify({"status": "error", "message": f"提交失敗：{str(e)}"}), 500
+        logging.error(f"寫入 Google Sheets 時發生錯誤: {e}")
+        return jsonify({"status": "error", "message": f"提交失敗：{str(e)}，可能是 Sheets API 限制或連線問題。"}), 500
 
-# 這部分是給本地開發測試使用，Render 部署時會使用 Gunicorn 或其他 WSGI Server
+# ----------------------------------------------------
+# 預設首頁（可選，用於健康檢查或基本訊息）
+@app.route('/')
+def home():
+    return jsonify({
+        "status": "online",
+        "message": "報修 API 服務運行中。請使用 POST 請求到 /submit_report 提交資料。",
+        "sheets_status": "連線成功" if sheet else "連線失敗"
+    })
+
 if __name__ == '__main__':
-    # 注意：在 Render 上，您不需要使用 app.run()，請參閱下方的部署說明。
-    print("在 http://127.0.0.1:5000/submit_report 測試 POST 請求...")
+    # 僅供本地測試使用
     app.run(debug=True, host='0.0.0.0', port=os.environ.get('PORT', 5000))
