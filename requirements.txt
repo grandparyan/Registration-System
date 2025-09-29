@@ -1,7 +1,5 @@
-fastapi
-uvicorn
-gunicorn
+Flask
+Flask-CORS
 gspread
 oauth2client
-python-dotenv
-jinja2
+gunicorn
